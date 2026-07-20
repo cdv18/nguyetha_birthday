@@ -463,12 +463,38 @@ export class SceneManager {
     this.updateTextSpriteWriting(this.textPoem1, 0);
     this.scene.add(this.textPoem1);
 
+    this.textPoem1Reflect = new THREE.Mesh(
+      this.textPoem1.geometry,
+      new THREE.MeshBasicMaterial({
+        map: this.textPoem1.material.map,
+        transparent: true, opacity: 0,
+        side: THREE.DoubleSide, depthTest: false, blending: THREE.NormalBlending
+      })
+    );
+    this.textPoem1Reflect.position.set(0, -12, 150); // Fake shallow reflection on water
+    this.textPoem1Reflect.scale.y = -0.5; // Upside down & vertically squished like a water reflection
+    this.textPoem1Reflect.renderOrder = 10;
+    this.scene.add(this.textPoem1Reflect);
+
     this.textPoem2 = this.createTextSprite("Tâm an nhiên tĩnh tại tựa ngàn non.", "Dancing Script", 120, "#222222", "0px", 8);
     this.textPoem2.position.set(0, 10, 40); // Set closer to the mountains
     this.textPoem2.material.opacity = 0;
     this.textPoem2.userData.writeProgress = 0;
     this.updateTextSpriteWriting(this.textPoem2, 0);
     this.scene.add(this.textPoem2);
+
+    this.textPoem2Reflect = new THREE.Mesh(
+      this.textPoem2.geometry,
+      new THREE.MeshBasicMaterial({
+        map: this.textPoem2.material.map,
+        transparent: true, opacity: 0,
+        side: THREE.DoubleSide, depthTest: false, blending: THREE.NormalBlending
+      })
+    );
+    this.textPoem2Reflect.position.set(0, -12, 40); 
+    this.textPoem2Reflect.scale.y = -0.5; 
+    this.textPoem2Reflect.renderOrder = 10;
+    this.scene.add(this.textPoem2Reflect);
   }
 
   transitionToInkWash() {

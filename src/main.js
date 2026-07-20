@@ -114,15 +114,18 @@ function blowCandles() {
   
   // PULL BACK dramatic reveal! (Camera zooms out to z=300)
   tl.to(sceneManager.camera.position, { z: 300, y: 50, duration: 4, ease: "power2.out" }, 1);
+  tl.to(sceneManager.camera.rotation, { x: -Math.PI / 12, duration: 4, ease: "power2.out" }, 1); // Tilt down to see the water
   
   // Camera then dives deeply into the painting from z=300 to z=-20 over 21s
   tl.to(sceneManager.camera.position, { z: -20, y: 3, duration: 21, ease: "none" }, 5);
+  tl.to(sceneManager.camera.rotation, { x: -Math.PI / 48, duration: 21, ease: "none" }, 5); // Slowly level the camera
   
   // 2. Birds fly in
   tl.to(sceneManager.birdMats, { opacity: 0.8, duration: 3 }, 4);
   
   // 3. Poem line 1 appears at z=150 (Camera hits it at ~14.8s)
   tl.set(sceneManager.textPoem1.material, { opacity: 1 }, 10);
+  tl.set(sceneManager.textPoem1Reflect.material, { opacity: 0.6 }, 10); // Reflection appears stronger
   tl.to(sceneManager.textPoem1.userData, { 
       writeProgress: 1, 
       duration: 3, 
@@ -130,12 +133,14 @@ function blowCandles() {
       onUpdate: () => sceneManager.updateTextSpriteWriting(sceneManager.textPoem1, sceneManager.textPoem1.userData.writeProgress)
   }, 10);
   tl.to(sceneManager.textPoem1.material, { opacity: 0, duration: 1.5 }, 13.5); // Fades out right as camera flies through it
+  tl.to(sceneManager.textPoem1Reflect.material, { opacity: 0, duration: 1.5 }, 13.5); // Reflection fades out
   
   // 4. Cherry Blossom Petals start falling gracefully
   tl.to(sceneManager.petalMat, { opacity: 0.7, duration: 4 }, 10);
   
   // 5. Poem line 2 appears at z=40 (Camera hits it at ~22.1s)
   tl.set(sceneManager.textPoem2.material, { opacity: 1 }, 17.5);
+  tl.set(sceneManager.textPoem2Reflect.material, { opacity: 0.6 }, 17.5); // Reflection appears stronger
   tl.to(sceneManager.textPoem2.userData, { 
       writeProgress: 1, 
       duration: 3, 
@@ -143,9 +148,11 @@ function blowCandles() {
       onUpdate: () => sceneManager.updateTextSpriteWriting(sceneManager.textPoem2, sceneManager.textPoem2.userData.writeProgress)
   }, 17.5);
   tl.to(sceneManager.textPoem2.material, { opacity: 0, duration: 1.5 }, 21); // Fades out as camera passes it
+  tl.to(sceneManager.textPoem2Reflect.material, { opacity: 0, duration: 1.5 }, 21); // Reflection fades out
 
   // --- ACT 4: DAWN FINALE (Return to Space) ---
   tl.add(() => sceneManager.transitionToDawn(), 26);
+  tl.to(sceneManager.camera.rotation, { x: 0, duration: 2 }, 26); // Reset camera rotation for Dawn
   
   tl.to(sceneManager.textHBD.material, { opacity: 1, duration: 3 }, 33);
   tl.fromTo(sceneManager.textHBD.position, { z: 40, y: 14 }, { z: 20, y: 12, duration: 5, ease: 'power2.out' }, 33);
