@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#1B2735" />
+      <stop offset="100%" stop-color="#090A0F" />
+    </linearGradient>
+    <linearGradient id="moon" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FFD700" />
+      <stop offset="100%" stop-color="#FFA500" />
+    </linearGradient>
+  </defs>
+  <!-- Background with rounded corners -->
+  <rect width="100" height="100" rx="22" fill="url(#bg)"/>
+  
+  <!-- Glowing Moon -->
+  <path d="M 65 25 A 25 25 0 1 1 35 75 A 35 35 0 1 0 65 25 Z" fill="url(#moon)"/>
+  
+  <!-- Star -->
+  <polygon points="75,15 78,23 86,23 80,29 82,37 75,32 68,37 70,29 64,23 72,23" fill="#FFFFFF" opacity="0.9" transform="scale(0.5) translate(30, 20)"/>
+  <polygon points="75,15 78,23 86,23 80,29 82,37 75,32 68,37 70,29 64,23 72,23" fill="#FFFFFF" opacity="0.6" transform="scale(0.3) translate(220, 150)"/>
+  
+  <!-- Stylized River -->
+  <path d="M 20 85 Q 35 75 50 85 T 80 85" fill="none" stroke="#4A90E2" stroke-width="4" stroke-linecap="round"/>
+  <path d="M 30 93 Q 45 83 60 93 T 70 93" fill="none" stroke="#4A90E2" stroke-width="2" stroke-linecap="round" opacity="0.6"/>
+</svg>
