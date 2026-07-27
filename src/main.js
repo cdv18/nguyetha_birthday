@@ -28,6 +28,7 @@ document.fonts.ready.then(() => {
     hasStarted = true;
     
     audioManager.start();
+    audioManager.playStarClickGlow();
     
     gsap.to(triggerStar, { scale: 150, opacity: 0, duration: 2, ease: 'power3.in' });
     gsap.to(triggerStar, { boxShadow: '0 0 100px 50px rgba(255,255,255,1)', duration: 1 }, "<");
@@ -43,14 +44,19 @@ document.fonts.ready.then(() => {
 });
 
 function buildTimeline() {
-  master.add(() => sceneManager.warpSpeed(), 0);
+  master.add(() => {
+    sceneManager.warpSpeed();
+    audioManager.playMoonApproachWhoosh();
+  }, 0);
   
   master.to(sceneManager.textName.material, { opacity: 1, duration: 3, ease: 'power2.inOut' }, 5);
   master.fromTo(sceneManager.textName.position, { y: 2 }, { y: 6, duration: 4, ease: 'power2.out' }, 5);
+  master.add(() => audioManager.playTitleChime(), 5);
   
   master.to(sceneManager.textYear.material, { opacity: 1, duration: 3 }, 7);
   master.fromTo(sceneManager.textYear.position, { y: -2 }, { y: 2, duration: 4, ease: 'power2.out' }, 7);
   
+  master.add(() => audioManager.startYearCount(), 8);
   const yearObj = { val: 2005 };
   master.to(yearObj, {
     val: 2026,
@@ -66,22 +72,33 @@ function buildTimeline() {
     { x: 0.5, y: 0.5, z: 0.5 }, 
     { x: 1.0, y: 1.0, z: 1.0, duration: 5, ease: 'power1.inOut' }, 
   8);
+  master.add(() => audioManager.stopYearCount(), 13);
 
   master.to(sceneManager.textName.material, { opacity: 0, duration: 2 }, 14);
   master.to(sceneManager.textYear.material, { opacity: 0, duration: 2 }, 14);
 
-  master.add(() => sceneManager.tiltDown(), 15);
+  master.add(() => {
+    sceneManager.tiltDown();
+    audioManager.playCameraWhoosh(2.8, 0.7, 'approach');
+  }, 15);
 
   for (let i = 0; i < 5; i++) {
     let t = 19 + i * 6;
     const whisper = sceneManager.whispers[i];
+    master.add(() => audioManager.playWhisper(i), t);
     master.fromTo(whisper.material, { opacity: 0 }, { opacity: 1, duration: 2, ease: 'power2.out' }, t);
     master.fromTo(whisper.position, { y: -2, z: 20 }, { y: 2, z: 10, duration: 5, ease: 'power1.out' }, t);
     master.to(whisper.material, { opacity: 0, duration: 2 }, t + 4);
   }
 
-  master.add(() => sceneManager.tiltUp(), 48);
-  master.add(() => sceneManager.showCake(), 49); 
+  master.add(() => {
+    sceneManager.tiltUp();
+    audioManager.playCameraWhoosh(2.5, 0.75, 'approach');
+  }, 48);
+  master.add(() => {
+    sceneManager.showCake();
+    audioManager.playCakeApproachWhoosh();
+  }, 49); 
   
   master.to(sceneManager.textWish.material, { opacity: 1, duration: 3 }, 51);
   master.fromTo(sceneManager.textWish.position, { y: 5 }, { y: 8, duration: 4, ease: 'power2.out' }, 51);
@@ -104,19 +121,24 @@ function blowCandles() {
   window.act3Timeline = tl; // Expose globally for debugging
   
   sceneManager.blowOutCandles(); 
+  audioManager.playCandleBlow();
   tl.to(sceneManager.textWish.material, { opacity: 0, duration: 1 }, 0);
   tl.add(() => sceneManager.hideCake(), 0.5); 
   
   // --- ACT 3: INK WASH EXTENDED DIRECTOR'S CUT (25s) ---
   
   // 1. Transition initiates: Mountains rise, scene turns to parchment
-  tl.add(() => sceneManager.transitionToInkWash(), 1);
+  tl.add(() => {
+    sceneManager.transitionToInkWash();
+    audioManager.transitionToInkWash();
+  }, 1);
   
   // PULL BACK dramatic reveal! (Camera zooms out to z=300)
   tl.to(sceneManager.camera.position, { z: 300, y: 50, duration: 4, ease: "power2.out" }, 1);
   tl.to(sceneManager.camera.rotation, { x: -Math.PI / 12, duration: 4, ease: "power2.out" }, 1); // Tilt down to see the water
   
   // Camera then dives deeply into the painting from z=300 to z=-20 over 21s
+  tl.add(() => audioManager.startInkWashDiveWhoosh(), 5);
   tl.to(sceneManager.camera.position, { z: -20, y: 3, duration: 21, ease: "none" }, 5);
   tl.to(sceneManager.camera.rotation, { x: -Math.PI / 48, duration: 21, ease: "none" }, 5); // Slowly level the camera
   
@@ -126,6 +148,7 @@ function blowCandles() {
   // 3. Poem line 1 appears at z=150 (Camera hits it at ~14.8s)
   tl.set(sceneManager.textPoem1.material, { opacity: 1 }, 10);
   tl.set(sceneManager.textPoem1Reflect.material, { opacity: 0.6 }, 10); // Reflection appears stronger
+  tl.add(() => audioManager.playPoemChime(1), 10);
   tl.to(sceneManager.textPoem1.userData, { 
       writeProgress: 1, 
       duration: 3, 
@@ -141,6 +164,7 @@ function blowCandles() {
   // 5. Poem line 2 appears at z=40 (Camera hits it at ~22.1s)
   tl.set(sceneManager.textPoem2.material, { opacity: 1 }, 17.5);
   tl.set(sceneManager.textPoem2Reflect.material, { opacity: 0.6 }, 17.5); // Reflection appears stronger
+  tl.add(() => audioManager.playPoemChime(2), 17.5);
   tl.to(sceneManager.textPoem2.userData, { 
       writeProgress: 1, 
       duration: 3, 
@@ -151,7 +175,10 @@ function blowCandles() {
   tl.to(sceneManager.textPoem2Reflect.material, { opacity: 0, duration: 1.5 }, 21); // Reflection fades out
 
   // --- ACT 4: DAWN FINALE (Return to Space) ---
-  tl.add(() => sceneManager.transitionToDawn(), 26);
+  tl.add(() => {
+    sceneManager.transitionToDawn();
+    audioManager.transitionToDawn();
+  }, 26);
   tl.to(sceneManager.camera.rotation, { x: 0, duration: 2 }, 26); // Reset camera rotation for Dawn
   
   tl.to(sceneManager.textHBD.material, { opacity: 1, duration: 3 }, 33);
@@ -160,7 +187,10 @@ function blowCandles() {
   tl.to(sceneManager.textLove.material, { opacity: 1, duration: 3 }, 36);
   tl.fromTo(sceneManager.textLove.position, { z: 45, y: 9 }, { z: 25, y: 7, duration: 5, ease: 'power2.out' }, 36);
   
-  tl.add(fireConfetti, 33);
+  tl.add(() => {
+    fireConfetti();
+    audioManager.playConfettiSparkles();
+  }, 33);
 }
 
 function fireConfetti() {
@@ -187,12 +217,14 @@ function animate() {
 window.skipToCake = () => {
     console.log("⏩ Bỏ qua Intro, chuyển đến cảnh Bánh Sinh Nhật...");
     master.seek(49);
+    if (audioManager) audioManager.playCakeAppear();
 };
 
 window.skipToInkWash = () => {
     console.log("⏩ Bỏ qua thổi nến, tiến thẳng vào Sơn Thủy Nguyệt Hà...");
     if (window.act3Timeline) window.act3Timeline.kill();
     master.seek(56);
+    if (audioManager) audioManager.transitionToInkWash();
     
     // Khóa và snap Camera về đúng vị trí chuẩn trước khi chuyển cảnh
     gsap.killTweensOf(sceneManager.camera.position);
@@ -208,6 +240,7 @@ window.skipToDawn = () => {
     console.log("⏩ Chuyển thẳng đến màn bùng nổ cuối cùng (Dawn Finale)...");
     if(window.act3Timeline) {
         window.act3Timeline.seek(26);
+        if (audioManager) audioManager.transitionToDawn();
     } else {
         master.seek(56);
         gsap.killTweensOf(sceneManager.camera.position);
@@ -217,6 +250,9 @@ window.skipToDawn = () => {
         
         hasBlownCandles = false; // Reset lock
         blowCandles();
-        setTimeout(() => window.act3Timeline.seek(26), 50);
+        setTimeout(() => {
+          window.act3Timeline.seek(26);
+          if (audioManager) audioManager.transitionToDawn();
+        }, 50);
     }
 };
