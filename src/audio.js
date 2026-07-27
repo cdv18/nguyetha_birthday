@@ -601,6 +601,74 @@ export class CinematicAudioManager {
   }
 
   // ==========================================
+  // ACT 4 FINALE: INTERSTELLAR BLACK HOLE & HOLOGRAPHIC PHOTO SPHERE
+  // ==========================================
+
+  playBlackHoleSuction() {
+    if (!this.ctx) return;
+    const now = this.ctx.currentTime;
+
+    // 1. IMAX Interstellar Deep Gravitational Rumble (30Hz -> 85Hz -> 20Hz)
+    const subOsc = this.ctx.createOscillator();
+    const subGain = this.ctx.createGain();
+    subOsc.type = 'sawtooth';
+    subOsc.frequency.setValueAtTime(32, now);
+    subOsc.frequency.exponentialRampToValueAtTime(95, now + 3.0);
+    subOsc.frequency.exponentialRampToValueAtTime(22, now + 5.5);
+
+    const filter = this.ctx.createBiquadFilter();
+    filter.type = 'lowpass';
+    filter.frequency.setValueAtTime(180, now);
+    filter.frequency.exponentialRampToValueAtTime(650, now + 3.0);
+    filter.frequency.exponentialRampToValueAtTime(80, now + 5.5);
+
+    subGain.gain.setValueAtTime(0.001, now);
+    subGain.gain.linearRampToValueAtTime(0.65, now + 3.0);
+    subGain.gain.exponentialRampToValueAtTime(0.001, now + 5.8);
+
+    subOsc.connect(filter);
+    filter.connect(subGain);
+    subGain.connect(this.compressor);
+    subGain.connect(this.reverbBus);
+    subOsc.start(now);
+    subOsc.stop(now + 6.0);
+
+    // 2. Gravitational Vortex Suction Whoosh ("hút tất cả")
+    this.playCameraWhoosh(5.5, 1.4, 'approach');
+  }
+
+  playBlackHoleWarp() {
+    if (!this.ctx) return;
+    const now = this.ctx.currentTime;
+    // Âm thanh vù vù siêu âm khi vượt qua tâm hố đen Gargantua
+    this.playCameraWhoosh(4.0, 1.5, 'approach');
+    this.playCinematicRhodes([73.42, 110.00, 146.83, 220.00, 329.63], now, 0.45, 6.0);
+  }
+
+  playPhotoSphereOpen() {
+    if (!this.ctx) return;
+    const now = this.ctx.currentTime;
+    // Âm thanh Holographic mở danh sách ảnh khi xòe bàn tay
+    this.playCinematicRhodes([220.00, 329.63, 440.00, 587.33], now, 0.25, 3.0);
+    this.playCameraWhoosh(1.5, 0.5, 'approach');
+  }
+
+  playPhotoSphereClose() {
+    if (!this.ctx) return;
+    const now = this.ctx.currentTime;
+    // Âm thanh thu gọn về dạng quả cầu xoay khi nắm tay lại
+    this.playCinematicRhodes([146.83, 220.00, 293.66], now, 0.22, 2.5);
+  }
+
+  playPhotoEnlarge() {
+    if (!this.ctx) return;
+    const now = this.ctx.currentTime;
+    // Âm thanh vinh danh bức ảnh khi chỉ tay > 2 giây
+    this.playCinematicRhodes([146.83, 220.00, 293.66, 440.00, 659.25], now, 0.35, 4.5);
+    this.playCameraWhoosh(1.2, 0.6, 'approach');
+  }
+
+  // ==========================================
   // MODERN CINEMATIC SOUND BUILDERS
   // ==========================================
 

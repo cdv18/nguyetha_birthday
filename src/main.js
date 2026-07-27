@@ -3,6 +3,7 @@ import gsap from 'gsap';
 import { SceneManager } from './gl/Scene.js';
 import { setupAudio } from './audio.js';
 import { setupMicDetection } from './interactions/mic.js';
+import { setupHandDetection, updateDwellProgress } from './interactions/hand.js';
 import confetti from 'canvas-confetti';
 
 const triggerStar = document.getElementById('trigger-star');
@@ -191,6 +192,52 @@ function blowCandles() {
     fireConfetti();
     audioManager.playConfettiSparkles();
   }, 33);
+
+  tl.add(() => {
+    // 1. Xuất hiện điểm sáng chói nhỏ lấp lánh ở giữa màn hình
+    if (sceneManager.sparklingPoint) {
+      sceneManager.sparklingPoint.visible = true;
+      sceneManager.sparklingPoint.scale.set(0, 0, 0);
+      gsap.to(sceneManager.sparklingPoint.scale, { x: 1, y: 1, z: 1, duration: 2.0, ease: 'back.out(2)' });
+    }
+
+    let isBlackHoleTriggered = false;
+    let isWarpComplete = false;
+
+    // 2. Kích hoạt nhận diện ngón tay chỉ (hoặc xòe/nắm tay) cho Hố đen & Quả cầu ảnh
+    setupHandDetection((gesture, x, y, dx, dy, _dwell, zoomDelta) => {
+      // Khi điểm sáng đang xuất hiện và chưa kích hoạt hố đen:
+      if (!isBlackHoleTriggered && sceneManager.sparklingPoint && sceneManager.sparklingPoint.visible) {
+        // Chỉ ngón tay (POINTING) vào giữa màn hình
+        if (gesture === 'POINTING' && Math.abs(x - 0.5) < 0.28 && Math.abs(y - 0.5) < 0.28) {
+          isBlackHoleTriggered = true;
+          console.log("👆 NGÓN TAY CHỈ VÀO ĐIỂM SÁNG -> KÍCH HOẠT HỐ ĐEN GARGANTUA!");
+          sceneManager.triggerBlackHoleSuction(() => {
+            isWarpComplete = true;
+          }, audioManager);
+        }
+      }
+
+      // Sau khi vượt qua hố đen và Quả cầu ảnh đã hiển thị:
+      if (isWarpComplete && sceneManager.photoSphere) {
+        sceneManager.photoSphere.handleHandGesture(gesture, x, y, dx, dy, (ratio) => {
+          updateDwellProgress(ratio);
+        }, zoomDelta);
+      }
+    });
+
+    // Sự kiện click/touch thủ công cho thiết bị không có camera
+    const clickHandler = () => {
+      if (!isBlackHoleTriggered && sceneManager.sparklingPoint && sceneManager.sparklingPoint.visible) {
+        isBlackHoleTriggered = true;
+        window.removeEventListener('click', clickHandler);
+        sceneManager.triggerBlackHoleSuction(() => {
+          isWarpComplete = true;
+        }, audioManager);
+      }
+    };
+    window.addEventListener('click', clickHandler);
+  }, 39);
 }
 
 function fireConfetti() {
@@ -255,4 +302,45 @@ window.skipToDawn = () => {
           if (audioManager) audioManager.transitionToDawn();
         }, 50);
     }
+};
+
+window.skipToBlackHole = () => {
+    console.log("⏩ Bỏ qua toàn bộ, nhảy thẳng đến Điểm sáng chói & Hố đen Gargantua...");
+    window.skipToDawn();
+    setTimeout(() => {
+        if (sceneManager && sceneManager.sparklingPoint) {
+            sceneManager.sparklingPoint.visible = true;
+            sceneManager.sparklingPoint.scale.set(1, 1, 1);
+            if (sceneManager.stars) sceneManager.stars.visible = false;
+            if (sceneManager.spaceStarfield) sceneManager.spaceStarfield.visible = true;
+        }
+        setupHandDetection((gesture, x, y, dx, dy, _dwell, zoomDelta) => {
+            if (sceneManager && sceneManager.photoSphere && sceneManager.photoSphere.group.visible) {
+                sceneManager.photoSphere.handleHandGesture(gesture, x, y, dx, dy, (ratio) => updateDwellProgress(ratio), zoomDelta);
+            }
+        });
+    }, 1000);
+};
+
+window.skipToPhotoSphere = () => {
+    console.log("⏩ Nhảy thẳng đến Quả cầu ảnh Nguyệt Hà 3D...");
+    window.skipToDawn();
+    setTimeout(() => {
+        if (sceneManager) {
+            sceneManager.camera.position.set(0, 12, 36);
+            sceneManager.camera.rotation.set(0, 0, 0);
+            if (sceneManager.water) sceneManager.water.visible = false;
+            if (sceneManager.timeTunnelGroup) sceneManager.timeTunnelGroup.visible = false;
+            if (sceneManager.stars) sceneManager.stars.visible = false;
+            if (sceneManager.spaceStarfield) sceneManager.spaceStarfield.visible = true;
+            sceneManager.scene.background.setRGB(0.002, 0.004, 0.01);
+            sceneManager.scene.fog.color.setRGB(0.002, 0.004, 0.01);
+            if (sceneManager.photoSphere) sceneManager.photoSphere.show();
+        }
+        setupHandDetection((gesture, x, y, dx, dy, _dwell, zoomDelta) => {
+            if (sceneManager && sceneManager.photoSphere) {
+                sceneManager.photoSphere.handleHandGesture(gesture, x, y, dx, dy, (ratio) => updateDwellProgress(ratio), zoomDelta);
+            }
+        });
+    }, 500);
 };

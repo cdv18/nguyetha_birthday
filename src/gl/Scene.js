@@ -4,6 +4,7 @@ import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
 import { Water } from 'three/examples/jsm/objects/Water.js';
+import { PhotoSphere } from './PhotoSphere.js';
 
 export class SceneManager {
   constructor() {
@@ -28,6 +29,13 @@ export class SceneManager {
     this.composer = null;
     this.bloomPass = null;
     this.birdMats = []; 
+
+    this.photoSphere = null;
+    this.sparklingPoint = null;
+    this.blackHoleGroup = null;
+    this.accretionUniforms = null;
+    this.accretionEmbers = null;
+    this.lensingUniforms = null;
   }
 
   init(container) {
@@ -55,6 +63,11 @@ export class SceneManager {
     this.createTextMeshes();
     this.createCake(); 
     this.createInkScene();
+
+    this.photoSphere = new PhotoSphere(this.scene, this.camera);
+    this.createSparklingLightPoint();
+    this.createRealisticBlackHoleSingularity();
+    this.createSpaceStarfield();
 
     this.camera.position.set(0, 5, 600); 
     
@@ -772,9 +785,599 @@ export class SceneManager {
         this.flameLight.position.x = (Math.random() - 0.5) * 0.05;
       }
     }
+
+    if (this.photoSphere) {
+      this.photoSphere.update(1.0 / 60.0);
+    }
+    if (this.sparklingPoint && this.sparklingPoint.visible) {
+      this.sparklingPoint.rotation.y = t * 2.0;
+      this.sparklingPoint.scale.setScalar(1.0 + Math.sin(t * 5.0) * 0.25);
+    }
+    if (this.spaceStarfield && this.spaceStarfield.visible) {
+      this.spaceStarfield.rotation.y += 0.00015;
+    }
+    if (this.blackHoleGroup && this.blackHoleGroup.visible) {
+      this.blackHoleGroup.rotation.y += 0.035;
+
+      if (this.accretionUniforms) {
+        this.accretionUniforms.uTime.value = t;
+      }
+      if (this.lensingUniforms) {
+        this.lensingUniforms.uTime.value = t;
+      }
+      if (this.accretionEmbers) {
+        this.accretionEmbers.rotation.y += 0.045;
+        this.accretionEmbers.rotation.z -= 0.015;
+      }
+    }
+
+    if (this.suctionStreamers && this.suctionStreamers.visible && this.suctionStreamers.geometry) {
+      this.suctionStreamers.rotation.z += 0.03;
+      const posAttr = this.suctionStreamers.geometry.attributes.position;
+      if (posAttr && posAttr.array) {
+        const arr = posAttr.array;
+        const warpSpd = (typeof this.warpVelocity === 'number' && !isNaN(this.warpVelocity)) ? this.warpVelocity : 25.0;
+        for (let i = 0; i < arr.length; i += 6) {
+          arr[i + 2] += warpSpd;
+          arr[i + 5] += warpSpd;
+          if (arr[i + 2] > 100) {
+            const l = arr[i + 2] - arr[i + 5];
+            arr[i + 2] = -160;
+            arr[i + 5] = -160 - l;
+          }
+        }
+        posAttr.needsUpdate = true;
+      }
+    }
     
     if(this.composer) this.composer.render();
     else this.renderer.render(this.scene, this.camera);
+  }
+
+  createSparklingLightPoint() {
+    this.sparklingPoint = new THREE.Group();
+    this.sparklingPoint.position.set(0, 12, 18); // Giữa màn hình chính diện camera
+    this.sparklingPoint.visible = false;
+
+    // Lõi sáng kim cương lấp lánh
+    const coreGeo = new THREE.SphereGeometry(0.5, 32, 32);
+    const coreMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+    const coreMesh = new THREE.Mesh(coreGeo, coreMat);
+    this.sparklingPoint.add(coreMesh);
+
+    // Hào quang vàng chói lấp lánh xung quanh
+    const haloGeo = new THREE.PlaneGeometry(8, 8);
+    const haloMat = new THREE.MeshBasicMaterial({
+      color: 0xffe680,
+      transparent: true,
+      opacity: 0.85,
+      blending: THREE.AdditiveBlending,
+      side: THREE.DoubleSide
+    });
+    const haloMesh = new THREE.Mesh(haloGeo, haloMat);
+    this.sparklingPoint.add(haloMesh);
+
+    this.scene.add(this.sparklingPoint);
+  }
+
+  createSpaceStarfield() {
+    this.spaceStarfield = new THREE.Group();
+    this.spaceStarfield.visible = false;
+
+    // 1. 4500 Ngôi sao thiên văn thực tế với nhiệt độ/màu sắc thực (xanh lam, trắng kim cương, vàng Mặt Trời, cam đỏ)
+    const starCount = 4500;
+    const starGeo = new THREE.BufferGeometry();
+    const positions = new Float32Array(starCount * 3);
+    const colors = new Float32Array(starCount * 3);
+
+    const colorHelper = new THREE.Color();
+    for (let i = 0; i < starCount; i++) {
+      const radius = 90 + Math.random() * 260;
+      const theta = Math.random() * Math.PI * 2;
+      const phi = Math.acos(2 * Math.random() - 1);
+
+      positions[i * 3] = radius * Math.sin(phi) * Math.cos(theta);
+      positions[i * 3 + 1] = radius * Math.sin(phi) * Math.sin(theta);
+      positions[i * 3 + 2] = radius * Math.cos(phi);
+
+      const rand = Math.random();
+      if (rand > 0.85) colorHelper.setHex(0x99ccff);
+      else if (rand > 0.5) colorHelper.setHex(0xffffff);
+      else if (rand > 0.25) colorHelper.setHex(0xffeea0);
+      else colorHelper.setHex(0xffcc88);
+
+      colors[i * 3] = colorHelper.r;
+      colors[i * 3 + 1] = colorHelper.g;
+      colors[i * 3 + 2] = colorHelper.b;
+    }
+
+    starGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    starGeo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+
+    const starMat = new THREE.PointsMaterial({
+      size: 1.25,
+      vertexColors: true,
+      transparent: true,
+      opacity: 0.95,
+      blending: THREE.AdditiveBlending
+    });
+
+    this.spaceStarfield.add(new THREE.Points(starGeo, starMat));
+
+    // 2. Lớp bụi tinh vân sâu thẳm tạo chiều sâu vũ trụ 3D
+    const dustCount = 800;
+    const dustGeo = new THREE.BufferGeometry();
+    const dustPos = new Float32Array(dustCount * 3);
+    for (let i = 0; i < dustCount; i++) {
+      dustPos[i * 3] = (Math.random() - 0.5) * 320;
+      dustPos[i * 3 + 1] = (Math.random() - 0.5) * 160;
+      dustPos[i * 3 + 2] = (Math.random() - 0.5) * 320;
+    }
+    dustGeo.setAttribute('position', new THREE.BufferAttribute(dustPos, 3));
+    const dustMat = new THREE.PointsMaterial({
+      color: 0x183366,
+      size: 3.5,
+      transparent: true,
+      opacity: 0.4,
+      blending: THREE.AdditiveBlending
+    });
+    this.spaceStarfield.add(new THREE.Points(dustGeo, dustMat));
+
+    this.scene.add(this.spaceStarfield);
+  }
+
+  createRealisticBlackHoleSingularity() {
+    this.blackHoleGroup = new THREE.Group();
+    this.blackHoleGroup.position.set(0, 12, 0); // Tâm hố đen ở (0, 12, 0)
+    this.blackHoleGroup.visible = false;
+
+    // 1. Event Horizon Sphere (Lõi đen tuyệt đối hút sạch ánh sáng)
+    const horizonGeo = new THREE.SphereGeometry(5.2, 64, 64);
+    const horizonMat = new THREE.MeshBasicMaterial({ color: 0x000000 });
+    this.blackHoleGroup.add(new THREE.Mesh(horizonGeo, horizonMat));
+
+    // 2. Gravitational Einstein Halo (Hào quang Einstein siêu mềm bẻ cong ánh sáng - KHÔNG DÙNG HÌNH CẦU CỨNG!)
+    const haloGeo = new THREE.PlaneGeometry(36, 36);
+    this.lensingUniforms = {
+      uTime: { value: 0 }
+    };
+    const haloMat = new THREE.ShaderMaterial({
+      uniforms: this.lensingUniforms,
+      vertexShader: `
+        varying vec2 vUv;
+        void main() {
+          vUv = uv;
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        }
+      `,
+      fragmentShader: `
+        uniform float uTime;
+        varying vec2 vUv;
+        void main() {
+          float dist = length(vUv - vec2(0.5)) * 2.0; // 0.0 ở tâm, 1.0 ở rìa
+          // Bóng đen hố đen (Event Horizon shadow)
+          float shadow = smoothstep(0.28, 0.31, dist);
+          // Vòng sáng phô-tông hội tụ mãnh liệt tại rìa chân trời sự kiện
+          float photonRing = exp(-pow((dist - 0.31) * 24.0, 2.0)) * 2.8;
+          // Hào quang khí quyển tương đối tính lan tỏa siêu mềm ra ngoài không gian (Không có viền cứng)
+          float softAtmosphere = exp(-(dist - 0.31) * 3.6) * smoothstep(0.25, 0.35, dist);
+
+          vec3 goldenLight = vec3(1.0, 0.85, 0.35);
+          vec3 cyanWarp = vec3(0.2, 0.88, 1.0);
+          vec3 color = mix(goldenLight, cyanWarp, sin(uTime * 1.5) * 0.5 + 0.5);
+
+          gl_FragColor = vec4(color, (photonRing + softAtmosphere * 0.85) * shadow);
+        }
+      `,
+      transparent: true,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false
+    });
+    this.blackHoleGroup.add(new THREE.Mesh(haloGeo, haloMat));
+
+    // 3. Đĩa bồi tụ plasma lỏng xoáy ốc (Relativistic Accretion Sheet - SIÊU MỀM, KHÔNG VIỀN CỨNG)
+    const diskGeo = new THREE.RingGeometry(5.4, 38.0, 128, 64);
+    this.accretionUniforms = {
+      uTime: { value: 0 }
+    };
+    const diskMat = new THREE.ShaderMaterial({
+      uniforms: this.accretionUniforms,
+      vertexShader: `
+        varying vec2 vUv;
+        varying vec3 vPos;
+        void main() {
+          vUv = uv;
+          vPos = position;
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        }
+      `,
+      fragmentShader: `
+        uniform float uTime;
+        varying vec2 vUv;
+        varying vec3 vPos;
+        void main() {
+          float angle = atan(vPos.y, vPos.x);
+          float radius = length(vPos.xy);
+
+          // Hiệu ứng Doppler Beaming (Doppler Boost): bên tiến về phía ta sáng chói rực rỡ hơn bên ra xa
+          float doppler = 1.0 + 0.72 * sin(angle - 0.4);
+
+          // Các luồng khí plasma xoáy ốc thiên văn nhiều lớp mượt mà
+          float w1 = sin(angle * 5.0 - radius * 0.9 - uTime * 5.0) * 0.5 + 0.5;
+          float w2 = cos(angle * 11.0 - radius * 1.8 - uTime * 8.0) * 0.5 + 0.5;
+          float w3 = sin(angle * 21.0 - radius * 0.4 - uTime * 12.0) * 0.5 + 0.5;
+          float gasStreams = pow(w1 * 0.5 + w2 * 0.35 + w3 * 0.15, 1.3);
+
+          // Phân tầng nhiệt độ: lõi siêu nhiệt trắng kim cương, giữa vàng hổ phách, rìa ngoài đỏ thẫm
+          vec3 whitePlasma = vec3(1.0, 1.0, 1.0);
+          vec3 amberPlasma = vec3(1.0, 0.68, 0.15);
+          vec3 crimsonHalo = vec3(0.75, 0.12, 0.05);
+
+          float mixVal = clamp((radius - 5.4) / 20.0, 0.0, 1.0);
+          vec3 color = mix(whitePlasma, amberPlasma, mixVal);
+          color = mix(color, crimsonHalo, pow(mixVal, 1.7));
+
+          // Độ mờ vô cực theo hàm mũ exp: tuyệt đối KHÔNG CÓ VIỀN VÒNG TRÒN CỨNG
+          float innerFade = smoothstep(5.4, 6.8, radius);
+          float outerSoftFade = exp(-(radius - 6.5) * 0.135);
+          float alpha = gasStreams * innerFade * outerSoftFade * doppler;
+
+          gl_FragColor = vec4(color, alpha * 0.95);
+        }
+      `,
+      transparent: true,
+      blending: THREE.AdditiveBlending,
+      side: THREE.DoubleSide,
+      depthWrite: false
+    });
+    const accretionDisk = new THREE.Mesh(diskGeo, diskMat);
+    accretionDisk.rotation.x = Math.PI / 2.55;
+    accretionDisk.rotation.y = 0.15;
+    this.blackHoleGroup.add(accretionDisk);
+
+    // 4. Vòng quang tương đối tính bẻ cong qua đỉnh hố đen (Warped Polar Light Arch - Chuẩn Interstellar)
+    const archGeo = new THREE.PlaneGeometry(28, 28);
+    const archMat = new THREE.ShaderMaterial({
+      uniforms: this.lensingUniforms,
+      vertexShader: `
+        varying vec2 vUv;
+        void main() {
+          vUv = uv;
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        }
+      `,
+      fragmentShader: `
+        varying vec2 vUv;
+        void main() {
+          vec2 c = vUv - vec2(0.5);
+          float dist = length(c) * 2.0;
+          float angle = atan(c.y, c.x);
+
+          // Vòng sáng phía trên và phía dưới bị bẻ cong bởi trọng lực hố đen
+          float topArch = exp(-pow((dist - 0.42) * 12.0, 2.0)) * smoothstep(0.0, 0.8, sin(angle));
+          float bottomArch = exp(-pow((dist - 0.46) * 10.0, 2.0)) * smoothstep(0.0, 0.8, -sin(angle)) * 0.6;
+
+          vec3 archColor = vec3(1.0, 0.78, 0.25);
+          float alpha = (topArch + bottomArch) * smoothstep(0.28, 0.34, dist);
+          gl_FragColor = vec4(archColor, alpha * 0.85);
+        }
+      `,
+      transparent: true,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false
+    });
+    const polarArch = new THREE.Mesh(archGeo, archMat);
+    polarArch.position.z = -0.5; // Nằm sau ranh giới Event Horizon
+    this.blackHoleGroup.add(polarArch);
+
+    // 5. Hệ thống 12.000 hạt bụi plasma xoáy lốc bồi tụ mềm 3D (Keplerian Accretion Vortex Embers)
+    const emberCount = 12000;
+    const emberGeo = new THREE.BufferGeometry();
+    const emberPos = new Float32Array(emberCount * 3);
+    const emberColors = new Float32Array(emberCount * 3);
+    const emberSizes = new Float32Array(emberCount);
+    const colHelper = new THREE.Color();
+
+    for (let i = 0; i < emberCount; i++) {
+      const radius = 6.0 + Math.pow(Math.random(), 0.7) * 32.0;
+      const angle = Math.random() * Math.PI * 2;
+      const height = (Math.random() - 0.5) * (radius * 0.28);
+
+      emberPos[i * 3] = radius * Math.cos(angle);
+      emberPos[i * 3 + 1] = height;
+      emberPos[i * 3 + 2] = radius * Math.sin(angle);
+
+      emberSizes[i] = 1.2 + Math.random() * 3.8;
+
+      const rand = Math.random();
+      if (radius < 9.0) colHelper.setHex(0xffffff);       // Trắng kim cương siêu nhiệt
+      else if (radius < 17.0) colHelper.setHex(0xffaa22); // Vàng cam hổ phách
+      else if (rand > 0.5) colHelper.setHex(0xdd3300);    // Đỏ thẫm viền ngoài
+      else colHelper.setHex(0x00eef0);                    // Cyan dịch chuyển tương đối tính
+
+      emberColors[i * 3] = colHelper.r;
+      emberColors[i * 3 + 1] = colHelper.g;
+      emberColors[i * 3 + 2] = colHelper.b;
+    }
+
+    emberGeo.setAttribute('position', new THREE.BufferAttribute(emberPos, 3));
+    emberGeo.setAttribute('color', new THREE.BufferAttribute(emberColors, 3));
+    emberGeo.setAttribute('size', new THREE.BufferAttribute(emberSizes, 1));
+
+    const emberMat = new THREE.ShaderMaterial({
+      vertexShader: `
+        attribute float size;
+        varying vec3 vColor;
+        void main() {
+          vColor = color;
+          vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+          gl_PointSize = size * (300.0 / -mvPosition.z);
+          gl_Position = projectionMatrix * mvPosition;
+        }
+      `,
+      fragmentShader: `
+        varying vec3 vColor;
+        void main() {
+          float dist = length(gl_PointCoord - vec2(0.5));
+          if (dist > 0.5) discard;
+          float glow = exp(-dist * dist * 16.0);
+          float core = smoothstep(0.5, 0.0, dist);
+          gl_FragColor = vec4(vColor, (glow * 0.75 + core * 0.25) * 0.95);
+        }
+      `,
+      transparent: true,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false
+    });
+
+    this.accretionEmbers = new THREE.Points(emberGeo, emberMat);
+    this.accretionEmbers.rotation.x = Math.PI / 2.55;
+    this.blackHoleGroup.add(this.accretionEmbers);
+
+    this.scene.add(this.blackHoleGroup);
+
+    // 5. Hệ thống 2500 vệt sáng hạt không gian lướt qua phía sau và hai bên camera (Warp Suction Streamers)
+    // TẠO CẢM GIÁC CAMERA ĐANG LAO VÀO BÊN TRONG (HÚT VÀO) CHỨ KHÔNG PHẢI HỐ ĐEN BAY ĐẾN TA
+    const streamCount = 2500;
+    const streamGeo = new THREE.BufferGeometry();
+    const streamPos = new Float32Array(streamCount * 2 * 3);
+    const streamColors = new Float32Array(streamCount * 2 * 3);
+    const cHelper = new THREE.Color();
+
+    for (let i = 0; i < streamCount; i++) {
+      const rad = 3.5 + Math.pow(Math.random(), 0.7) * 42;
+      const ang = Math.random() * Math.PI * 2;
+      const x = rad * Math.cos(ang);
+      const y = rad * Math.sin(ang);
+      const zStart = 80 - Math.random() * 160; // Phân bố quanh và phía trước camera
+      const len = 10 + Math.random() * 28; // Độ dài vệt sáng khi lướt qua
+
+      streamPos[i * 6] = x;
+      streamPos[i * 6 + 1] = y + 12; // Tăng y+12 tương ứng tầm mắt camera
+      streamPos[i * 6 + 2] = zStart;
+
+      streamPos[i * 6 + 3] = x;
+      streamPos[i * 6 + 4] = y + 12;
+      streamPos[i * 6 + 5] = zStart - len;
+
+      const rVal = Math.random();
+      if (rVal > 0.75) cHelper.setHex(0x00ffff); // Cyan
+      else if (rVal > 0.4) cHelper.setHex(0xffffff); // White
+      else if (rVal > 0.2) cHelper.setHex(0xffaa22); // Amber
+      else cHelper.setHex(0x5588ff);                 // Blue
+
+      for (let j = 0; j < 2; j++) {
+        streamColors[i * 6 + j * 3] = cHelper.r;
+        streamColors[i * 6 + j * 3 + 1] = cHelper.g;
+        streamColors[i * 6 + j * 3 + 2] = cHelper.b;
+      }
+    }
+
+    streamGeo.setAttribute('position', new THREE.BufferAttribute(streamPos, 3));
+    streamGeo.setAttribute('color', new THREE.BufferAttribute(streamColors, 3));
+
+    const streamMat = new THREE.LineBasicMaterial({
+      vertexColors: true,
+      transparent: true,
+      opacity: 0.9,
+      blending: THREE.AdditiveBlending
+    });
+
+    this.suctionStreamers = new THREE.LineSegments(streamGeo, streamMat);
+    this.suctionStreamers.visible = false;
+    this.scene.add(this.suctionStreamers);
+
+    // 6. Hiệu ứng Vụ Nổ Sinh Ra Hố Đen (Singularity Birth Flash & Shockwave) - Xóa bỏ cảm giác xuất hiện thô
+    this.birthFlashGroup = new THREE.Group();
+    this.birthFlashGroup.position.set(0, 12, 0);
+    this.birthFlashGroup.visible = false;
+
+    const flashGeo = new THREE.SphereGeometry(1, 32, 32);
+    const flashMat = new THREE.MeshBasicMaterial({
+      color: 0xffffff,
+      transparent: true,
+      opacity: 1.0,
+      blending: THREE.AdditiveBlending
+    });
+    this.birthFlashCore = new THREE.Mesh(flashGeo, flashMat);
+    this.birthFlashGroup.add(this.birthFlashCore);
+
+    const shockGeo = new THREE.TorusGeometry(2, 0.4, 32, 64);
+    const shockMat = new THREE.MeshBasicMaterial({
+      color: 0x00ffff,
+      transparent: true,
+      opacity: 0.9,
+      blending: THREE.AdditiveBlending
+    });
+    this.birthShockwave = new THREE.Mesh(shockGeo, shockMat);
+    this.birthShockwave.rotation.x = Math.PI / 2.7;
+    this.birthFlashGroup.add(this.birthShockwave);
+
+    this.scene.add(this.birthFlashGroup);
+  }
+
+  triggerBlackHoleSuction(onWarpComplete, audioManager) {
+    if (this.sparklingPoint) this.sparklingPoint.visible = false;
+
+    // 0. Tắt ngay hiệu ứng lóe sáng rực rỡ (bloom) và màu rực hồng của màn trước, chuyển nền về đen sâu vũ trụ
+    if (this.bloomPass) {
+      gsap.to(this.bloomPass, { strength: 0.35, threshold: 0.65, radius: 0.4, duration: 2.5 });
+    }
+    gsap.to(this.scene.background, { r: 0.0005, g: 0.001, b: 0.002, duration: 2.0, ease: 'power2.inOut' });
+    gsap.to(this.scene.fog.color, { r: 0.0005, g: 0.001, b: 0.002, duration: 2.0, ease: 'power2.inOut' });
+
+    // 0. Ẩn sao trái tim cũ, chuyển toàn bộ không gian về nền đen sâu thẳm
+    if (this.stars) this.stars.visible = false;
+
+    // 1. Hiệu ứng Vụ Nổ Sinh Ra Hố Đen (Singularity Birth Flash & Shockwave) - Xóa bỏ sự thô cứng khi xuất hiện
+    if (this.birthFlashGroup) {
+      this.birthFlashGroup.visible = true;
+      this.birthFlashCore.scale.set(0.1, 0.1, 0.1);
+      this.birthFlashCore.material.opacity = 1.0;
+      this.birthShockwave.scale.set(0.2, 0.2, 0.2);
+      this.birthShockwave.material.opacity = 0.9;
+
+      gsap.to(this.birthFlashCore.scale, { x: 25, y: 25, z: 25, duration: 1.4, ease: 'power2.out' });
+      gsap.to(this.birthFlashCore.material, { opacity: 0, duration: 1.4, ease: 'power2.out' });
+      gsap.to(this.birthShockwave.scale, { x: 20, y: 20, z: 20, duration: 1.6, ease: 'power2.out' });
+      gsap.to(this.birthShockwave.material, { opacity: 0, duration: 1.6, ease: 'power2.out', onComplete: () => {
+        this.birthFlashGroup.visible = false;
+      }});
+    }
+
+    // 2. Kích hoạt Hố Đen Chân Thực mượt mà sau ánh chớp sinh ra
+    if (this.blackHoleGroup) {
+      this.blackHoleGroup.visible = true;
+      this.blackHoleGroup.scale.set(0.1, 0.1, 0.1);
+      gsap.to(this.blackHoleGroup.scale, {
+        x: 2.2,
+        y: 2.2,
+        z: 2.2,
+        duration: 2.6,
+        ease: 'power2.out'
+      });
+    }
+
+    // 3. Kích hoạt hệ thống 2500 hạt không gian lướt qua phía sau camera (TẠO CẢM GIÁC HÚT VÀO BÊN TRONG CHỨ KHÔNG PHẢI HỐ ĐEN BAY ĐẾN)
+    if (this.suctionStreamers) {
+      this.suctionStreamers.visible = true;
+      this.warpVelocity = 25.0;
+    }
+
+    if (audioManager && typeof audioManager.playBlackHoleSuction === 'function') {
+      audioManager.playBlackHoleSuction();
+    }
+
+    console.log("🌌 HỐ ĐEN VŨ TRỤ XUẤT HIỆN: Ánh chớp sinh ra uy nghi, ban đầu từ từ chậm bị hút vào sau mới lao nhanh!");
+
+    // 4. Hút toàn bộ chữ, bánh sinh nhật, chim, mặt trăng vào tâm Hố đen (0, 12, 0)
+    // Dùng ease: 'power3.in' để ĐÚNG YÊU CẦU: ban đầu chậm từ từ, sau gia tốc cực mạnh
+    const objectsToSuck = [
+      this.textHBD, this.textLove, this.cakeGroup, this.moon, this.birds
+    ].filter(Boolean);
+
+    objectsToSuck.forEach((obj, idx) => {
+      // Khi bị lực hấp dẫn nuốt chửng, vật thể xoáy vào tâm hố đen (0, 12, 0)
+      gsap.to(obj.position, {
+        x: 0,
+        y: 12,
+        z: 0,
+        duration: 2.8,
+        delay: idx * 0.06,
+        ease: 'power3.in' // BAN ĐẦU CHẬM TỪ TỪ, SAU LAO NHANH VÀO TÂM
+      });
+      // Xoáy tròn theo lực hấp dẫn
+      gsap.to(obj.rotation, {
+        x: "+=3.14",
+        y: "+=6.28",
+        z: "+=3.14",
+        duration: 2.8,
+        delay: idx * 0.06,
+        ease: 'power3.in'
+      });
+      // Thu nhỏ dần về (0, 0, 0) khi lọt qua ranh giới Chân trời sự kiện - tuyệt đối KHÔNG BỊ BẸT NGANG HAY TO HƠN HỐ ĐEN
+      gsap.to(obj.scale, {
+        x: 0,
+        y: 0,
+        z: 0,
+        duration: 2.8,
+        delay: idx * 0.06,
+        ease: 'power3.in',
+        onComplete: () => {
+          obj.visible = false;
+        }
+      });
+    });
+
+    if (this.water) {
+      gsap.to(this.water.position, {
+        y: -150,
+        duration: 2.8,
+        ease: 'power2.in',
+        onComplete: () => {
+          this.water.visible = false;
+        }
+      });
+    }
+
+    // 5. Người xem (Camera) bị hút: BAN ĐẦU CHẬM TỪ TỪ, SAU LAO NHANH thẳng qua Chân trời sự kiện
+    setTimeout(() => {
+      if (audioManager && typeof audioManager.playBlackHoleWarp === 'function') {
+        audioManager.playBlackHoleWarp();
+      }
+    }, 1200);
+
+    // Hiệu ứng bẻ cong trường nhìn FOV (Gravitational Lensing Warp)
+    gsap.to(this.camera, {
+      fov: 98,
+      duration: 3.4,
+      ease: 'power3.in',
+      onUpdate: () => this.camera.updateProjectionMatrix()
+    });
+
+    // Rung lắc nhẹ góc nhìn camera (Gravitational Buffeting) do gia tốc hút cực lớn
+    gsap.to(this.camera.rotation, {
+      z: 0.08,
+      duration: 1.7,
+      yoyo: true,
+      repeat: 1,
+      ease: 'sine.inOut'
+    });
+
+    console.log("🚀 HÚT GÓC NHÌN CAMERA VÀO TRONG HỐ ĐEN: Vệt sáng lướt qua hai bên và phía sau tạo cảm giác lao tới!");
+      
+    // Camera bị lực hấp dẫn hút từ vị trí hiện tại xuyên thẳng qua tâm Hố đen (z = 0) sang phía sau (z = -45)
+    gsap.to(this.camera.position, {
+      x: 0,
+      y: 12,
+      z: -45,
+      duration: 3.5,
+      ease: 'power3.in', // BAN ĐẦU CHẬM TỪ TỪ, SAU LAO NHANH
+      onComplete: () => {
+        // Trả FOV về bình thường khi bước sang Vũ trụ Kỷ niệm Quả cầu ảnh
+        this.camera.fov = 60;
+        this.camera.updateProjectionMatrix();
+
+        // Đặt camera vào tâm không gian Quả cầu ảnh 3D (z = 36)
+        this.camera.position.set(0, 12, 36);
+        this.camera.rotation.set(0, 0, 0);
+        if (this.blackHoleGroup) this.blackHoleGroup.visible = false;
+        if (this.suctionStreamers) this.suctionStreamers.visible = false;
+        if (this.birthFlashGroup) this.birthFlashGroup.visible = false;
+        if (this.water) this.water.visible = false;
+        if (this.stars) this.stars.visible = false;
+        if (this.spaceStarfield) this.spaceStarfield.visible = true;
+        objectsToSuck.forEach(obj => { if (obj) obj.visible = false; });
+
+        // Nền trời sao đen thẳm sâu huyền bí cho Quả cầu ảnh 3D
+        this.scene.background.setRGB(0.001, 0.002, 0.005);
+        this.scene.fog.color.setRGB(0.001, 0.002, 0.005);
+        if (this.bloomPass) this.bloomPass.strength = 0.4;
+
+        if (this.photoSphere) this.photoSphere.show();
+        if (onWarpComplete) onWarpComplete();
+      }
+    });
   }
 
   onResize() {
