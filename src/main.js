@@ -3,7 +3,7 @@ import gsap from 'gsap';
 import { SceneManager } from './gl/Scene.js';
 import { setupAudio } from './audio.js';
 import { setupMicDetection } from './interactions/mic.js';
-import { setupHandDetection, updateDwellProgress } from './interactions/hand.js';
+import { setupHandInteraction, setupHandDetection, updateDwellProgress } from './interactions/hand.js';
 import confetti from 'canvas-confetti';
 
 const triggerStar = document.getElementById('trigger-star');
@@ -20,6 +20,8 @@ document.fonts.ready.then(() => {
   
   sceneManager = new SceneManager();
   sceneManager.init(document.getElementById('canvas-container'));
+  window._globalPhotoSphere = sceneManager.photoSphere;
+  window._globalCamera = sceneManager.camera;
   audioManager = setupAudio();
 
   buildTimeline();
@@ -203,18 +205,30 @@ function blowCandles() {
 
     let isBlackHoleTriggered = false;
     let isWarpComplete = false;
+    let blackHoleDwellTime = 0;
 
-    // 2. Kích hoạt nhận diện ngón tay chỉ (hoặc xòe/nắm tay) cho Hố đen & Quả cầu ảnh
-    setupHandDetection((gesture, x, y, dx, dy, _dwell, zoomDelta) => {
+    // 2. Kích hoạt nhận diện ngón tay chỉ (hoặc xòe/nắm tay) cho Hố đen & Quả cầu ảnh (Hệ thống AI 2.0)
+    setupHandInteraction(sceneManager.photoSphere, sceneManager.camera, audioManager, (gesture, x, y, dx, dy, _dwell, zoomDelta) => {
       // Khi điểm sáng đang xuất hiện và chưa kích hoạt hố đen:
       if (!isBlackHoleTriggered && sceneManager.sparklingPoint && sceneManager.sparklingPoint.visible) {
-        // Chỉ ngón tay (POINTING) vào giữa màn hình
-        if (gesture === 'POINTING' && Math.abs(x - 0.5) < 0.28 && Math.abs(y - 0.5) < 0.28) {
-          isBlackHoleTriggered = true;
-          console.log("👆 NGÓN TAY CHỈ VÀO ĐIỂM SÁNG -> KÍCH HOẠT HỐ ĐEN GARGANTUA!");
-          sceneManager.triggerBlackHoleSuction(() => {
-            isWarpComplete = true;
-          }, audioManager);
+        // Vùng nhận diện rộng (70% màn hình) và chấp nhận bất kỳ cử chỉ tay nào hướng vào giữa
+        const inCenterBox = Math.abs(x - 0.5) < 0.35 && Math.abs(y - 0.5) < 0.35;
+        if (inCenterBox && gesture !== 'NONE') {
+          blackHoleDwellTime += 16.6;
+          updateDwellProgress(Math.min(1.0, blackHoleDwellTime / 300));
+
+          if (blackHoleDwellTime >= 300) {
+            isBlackHoleTriggered = true;
+            updateDwellProgress(0);
+            console.log("✨ CHẠM TAY VÀO VÌ SAO -> KÍCH HOẠT HỐ ĐEN GARGANTUA!");
+            sceneManager.triggerBlackHoleSuction(() => {
+              isWarpComplete = true;
+            }, audioManager);
+          }
+        } else {
+          // Trừ dần thay vì reset về 0 ngay lập tức tránh mất dwell do tay rung nhẹ
+          blackHoleDwellTime = Math.max(0, blackHoleDwellTime - 10);
+          updateDwellProgress(Math.min(1.0, blackHoleDwellTime / 300));
         }
       }
 
@@ -308,14 +322,38 @@ window.skipToBlackHole = () => {
     console.log("⏩ Bỏ qua toàn bộ, nhảy thẳng đến Điểm sáng chói & Hố đen Gargantua...");
     window.skipToDawn();
     setTimeout(() => {
+        let isBlackHoleTriggered = false;
+        let isWarpComplete = false;
+        let blackHoleDwellTime = 0;
+
         if (sceneManager && sceneManager.sparklingPoint) {
             sceneManager.sparklingPoint.visible = true;
             sceneManager.sparklingPoint.scale.set(1, 1, 1);
             if (sceneManager.stars) sceneManager.stars.visible = false;
             if (sceneManager.spaceStarfield) sceneManager.spaceStarfield.visible = true;
         }
+
         setupHandDetection((gesture, x, y, dx, dy, _dwell, zoomDelta) => {
-            if (sceneManager && sceneManager.photoSphere && sceneManager.photoSphere.group.visible) {
+            if (!isBlackHoleTriggered && sceneManager && sceneManager.sparklingPoint && sceneManager.sparklingPoint.visible) {
+                const inCenterBox = Math.abs(x - 0.5) < 0.35 && Math.abs(y - 0.5) < 0.35;
+                if (inCenterBox && gesture !== 'NONE') {
+                    blackHoleDwellTime += 16.6;
+                    updateDwellProgress(Math.min(1.0, blackHoleDwellTime / 300));
+                    if (blackHoleDwellTime >= 300) {
+                        isBlackHoleTriggered = true;
+                        updateDwellProgress(0);
+                        console.log("✨ CHẠM TAY VÀO VÌ SAO -> KÍCH HOẠT HỐ ĐEN GARGANTUA!");
+                        sceneManager.triggerBlackHoleSuction(() => {
+                            isWarpComplete = true;
+                        }, audioManager);
+                    }
+                } else {
+                    blackHoleDwellTime = Math.max(0, blackHoleDwellTime - 10);
+                    updateDwellProgress(Math.min(1.0, blackHoleDwellTime / 300));
+                }
+            }
+
+            if ((isWarpComplete || (sceneManager.photoSphere && sceneManager.photoSphere.group.visible)) && sceneManager.photoSphere) {
                 sceneManager.photoSphere.handleHandGesture(gesture, x, y, dx, dy, (ratio) => updateDwellProgress(ratio), zoomDelta);
             }
         });

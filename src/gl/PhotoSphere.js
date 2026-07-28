@@ -8,6 +8,7 @@ const photoUrls = Object.values(photoUrlsMap);
 /**
  * PHOTO SPHERE & HOLOGRAPHIC GESTURE GALLERY
  * Quả cầu 3D Kỷ niệm Nguyệt Hà & Trình diễn ảnh Holographic điều khiển bằng cử chỉ tay
+ * Đã nâng cấp hỗ trợ StateMachine, dàn trải 2 tay (SPREADING), Hover Highlight, và chống rung/lỗi nhạy.
  */
 export class PhotoSphere {
   constructor(scene, camera) {
@@ -19,11 +20,12 @@ export class PhotoSphere {
     this.scene.add(this.group);
 
     this.cards = [];
-    this.state = 'SPHERE'; // 'SPHERE', 'GALLERY', 'FULLVIEW'
+    this.state = 'SPHERE'; // 'SPHERE', 'GALLERY', 'FULLVIEW', 'SPREADING', 'COLLAPSING'
     this.previousState = 'SPHERE';
     this.activeCard = null;
     this.hoveredCard = null;
     this.hoverStartTime = 0;
+    this.lastHoverSeenTime = 0;
     this.closeHoverStartTime = null;
     this.enlargeTimestamp = 0;
     this.galleryScrollX = 0;
@@ -54,7 +56,7 @@ export class PhotoSphere {
   initPhotos() {
     const textureLoader = new THREE.TextureLoader();
     const count = photoUrls.length || 1;
-    const radius = 22; // Bán kính quả cầu ảnh 3D lớn hơn, hoành tráng hơn
+    const radius = 13.5; // Bán kính chuẩn, nhìn thấy trọn vẹn 100% quả cầu trên màn hình
     const phi = Math.PI * (3 - Math.sqrt(5)); // Tỷ lệ vàng Fibonacci
 
     photoUrls.forEach((url, i) => {
@@ -70,7 +72,7 @@ export class PhotoSphere {
 
       // 2. Tọa độ Floating Gallery List (khi xòe bàn tay phân giải)
       // Dàn đều ảnh trên một cung ngang/danh sách nổi trước camera
-      const spacing = 11.5;
+      const spacing = 7.5;
       const galleryX = (i - (count - 1) / 2) * spacing;
       const galleryPos = new THREE.Vector3(galleryX, 0, 15); // Gần camera hơn
 
@@ -79,8 +81,8 @@ export class PhotoSphere {
       cardGroup.position.copy(spherePos);
       cardGroup.lookAt(0, 0, 0);
 
-      // Khung viền sáng bóng lớn hơn
-      const frameGeo = new THREE.PlaneGeometry(9.6, 6.8);
+      // Khung viền sáng bóng cân đối vừa vặn
+      const frameGeo = new THREE.PlaneGeometry(6.2, 4.4);
       const frameMat = new THREE.MeshBasicMaterial({
         color: 0x00ffff,
         wireframe: false,
@@ -92,8 +94,8 @@ export class PhotoSphere {
       frameMesh.position.z = -0.05;
       cardGroup.add(frameMesh);
 
-      // Mặt ảnh chính lớn hơn
-      const geo = new THREE.PlaneGeometry(9.2, 6.4);
+      // Mặt ảnh chính sắc nét
+      const geo = new THREE.PlaneGeometry(5.8, 4.0);
       const texture = textureLoader.load(url);
       texture.colorSpace = THREE.SRGBColorSpace;
 
@@ -111,7 +113,8 @@ export class PhotoSphere {
         sphereRot: cardGroup.rotation.clone(),
         galleryPos: galleryPos.clone(),
         cardGroup: cardGroup,
-        frameMesh: frameMesh
+        frameMesh: frameMesh,
+        isHovered: false,
       };
 
       cardGroup.add(mesh);
@@ -144,15 +147,39 @@ export class PhotoSphere {
   }
 
   /**
-   * XÒE BÀN TAY (OPEN_PALM): Phân giải Quả cầu thành Danh sách ảnh nổi (Floating Gallery)
+   * Nội suy vị trí ảnh giữa quả cầu và danh sách ngang khi dàn trải 2 tay (SPREADING / COLLAPSING)
+   * @param {number} ratio - 0.0 (Quả cầu) -> 1.0 (Gallery)
+   */
+  updateSpreadLayout(ratio) {
+    const t = Math.max(0, Math.min(1, ratio));
+    this.cards.forEach((card) => {
+      if (card.userData.cardGroup.parent !== this.group) {
+        this.group.attach(card.userData.cardGroup);
+      }
+      const sPos = card.userData.spherePos;
+      const gPos = card.userData.galleryPos;
+      const sRot = card.userData.sphereRot;
+
+      // Nội suy tọa độ position
+      card.userData.cardGroup.position.lerpVectors(sPos, gPos, t);
+
+      // Nội suy rotation về Euler(0,0,0) khi t -> 1
+      card.userData.cardGroup.rotation.x = sRot.x * (1 - t);
+      card.userData.cardGroup.rotation.y = sRot.y * (1 - t);
+      card.userData.cardGroup.rotation.z = sRot.z * (1 - t);
+    });
+  }
+
+  /**
+   * XÒE BÀN TAY (OPEN_PALM / 2 TAY KÉO RA): Phân giải Quả cầu thành Danh sách ảnh nổi (Floating Gallery)
    */
   disperseToGallery() {
     if (this.state === 'GALLERY') return;
     this.state = 'GALLERY';
     this.activeCard = null;
 
-    console.log("✋ XÒE TAY: Phân giải quả cầu ảnh thành danh sách trôi nổi!");
-    this.cards.forEach((card, idx) => {
+    console.log("✋ PHÂN GIẢI QUẢ CẦU: Dàn ảnh thành danh sách trôi nổi (Gallery)!");
+    this.cards.forEach((card) => {
       if (card.userData.cardGroup.parent !== this.group) {
         this.group.attach(card.userData.cardGroup);
       }
@@ -177,15 +204,15 @@ export class PhotoSphere {
   }
 
   /**
-   * NẤM BÀN TAY (FIST): Thu gọn danh sách ảnh hoặc ảnh phóng to về lại Quả Cầu xoay tròn
+   * NẮM BÀN TAY (FIST / 2 TAY KÉO VÀO): Thu gọn danh sách ảnh hoặc ảnh phóng to về lại Quả Cầu xoay tròn
    */
   collapseToSphere() {
     if (this.state === 'SPHERE') return;
     this.state = 'SPHERE';
     this.activeCard = null;
-    this.hoveredCard = null;
+    this.unhighlightAllCards();
 
-    console.log("✊ NẤM TAY: Thu gọn ảnh về dạng quả cầu xoay tròn!");
+    console.log("✊ THU GỌN ẢNH: Đưa về dạng Quả cầu 3D xoay tròn!");
     this.cards.forEach((card) => {
       if (card.userData.cardGroup.parent !== this.group) {
         this.group.attach(card.userData.cardGroup);
@@ -214,7 +241,38 @@ export class PhotoSphere {
   }
 
   /**
-   * CHỈ TAY HOVER 1s: Phóng to bức ảnh được chọn ra chính diện camera
+   * HIỆU ỨNG HOVER HIGHLIGHT: Phóng to nhẹ, sáng viền vàng, và dịch về phía trước
+   */
+  highlightCard(cardMesh) {
+    if (!cardMesh || cardMesh.userData.isHovered || this.state === 'FULLVIEW') return;
+    cardMesh.userData.isHovered = true;
+
+    gsap.to(cardMesh.scale, { x: 1.15, y: 1.15, z: 1.15, duration: 0.35, ease: 'power2.out' });
+    gsap.to(cardMesh.userData.frameMesh.scale, { x: 1.15, y: 1.15, z: 1.15, duration: 0.35, ease: 'power2.out' });
+    gsap.to(cardMesh.userData.frameMesh.material.color, { r: 1.0, g: 0.84, b: 0.0, duration: 0.3 });
+    gsap.to(cardMesh.userData.frameMesh.material, { opacity: 0.85, duration: 0.3 });
+  }
+
+  /**
+   * BỎ HOVER HIGHLIGHT: Trả ảnh về kích thước và màu khung bình thường
+   */
+  unhighlightCard(cardMesh) {
+    if (!cardMesh || !cardMesh.userData.isHovered || this.state === 'FULLVIEW') return;
+    cardMesh.userData.isHovered = false;
+
+    gsap.to(cardMesh.scale, { x: 1.0, y: 1.0, z: 1.0, duration: 0.35, ease: 'power2.out' });
+    gsap.to(cardMesh.userData.frameMesh.scale, { x: 1.0, y: 1.0, z: 1.0, duration: 0.35, ease: 'power2.out' });
+    gsap.to(cardMesh.userData.frameMesh.material.color, { r: 0.0, g: 1.0, b: 1.0, duration: 0.3 });
+    gsap.to(cardMesh.userData.frameMesh.material, { opacity: 0.4, duration: 0.3 });
+  }
+
+  unhighlightAllCards() {
+    this.cards.forEach((c) => this.unhighlightCard(c));
+    this.hoveredCard = null;
+  }
+
+  /**
+   * CHỈ TAY HOVER / PINCH TO OPEN: Phóng to bức ảnh được chọn ra chính diện camera
    */
   enlargeCard(cardMesh) {
     if (this.state === 'FULLVIEW' && this.activeCard === cardMesh) return;
@@ -222,8 +280,9 @@ export class PhotoSphere {
     this.state = 'FULLVIEW';
     this.activeCard = cardMesh;
     this.enlargeTimestamp = performance.now();
+    this.unhighlightAllCards();
 
-    console.log(`✨ VIEW LỚN BỨC ẢNH #${cardMesh.userData.index + 1} (Chỉ tay Hover 1s)`);
+    console.log(`✨ VIEW LỚN BỨC ẢNH #${cardMesh.userData.index + 1}`);
 
     this.showCloseButtonUI();
 
@@ -280,7 +339,7 @@ export class PhotoSphere {
         fontSize: '15px',
         fontWeight: '700',
         cursor: 'pointer',
-        boxShadow: '0 10px 30px rgba(255, 0, 0, 0.4), 0 0 20px rgba(255, 255, 255, 0.2)',
+        boxShadow: '0 10px 30px rgba(255, 0, 0, 0.4), 0 0 20px rgba(255, 255, 0.2)',
         transition: 'all 0.4s ease',
         opacity: '0'
       });
@@ -308,14 +367,20 @@ export class PhotoSphere {
 
   /**
    * HỦY / ĐÓNG XEM ẢNH: Trở về chế độ trước đó (SPHERE hoặc GALLERY)
+   * Tích hợp thời gian bảo vệ 500ms tránh đóng nhầm ngay sau khi mở
    */
   closeFullView() {
     if (this.state !== 'FULLVIEW' || !this.activeCard) return;
 
+    // Bảo vệ tối thiểu 500ms sau khi mở ảnh
+    if (performance.now() - (this.enlargeTimestamp || 0) < 500) {
+      return;
+    }
+
     console.log("❌ HỦY XEM ẢNH: Trở về trạng thái trước đó.");
     this.hideCloseButtonUI();
 
-    const targetState = this.previousState || 'SPHERE';
+    const targetState = (this.previousState === 'FULLVIEW') ? 'SPHERE' : (this.previousState || 'SPHERE');
     const active = this.activeCard;
     if (active.userData.cardGroup.parent !== this.group) {
       this.group.attach(active.userData.cardGroup);
@@ -354,93 +419,108 @@ export class PhotoSphere {
   }
 
   /**
-   * ZOOM VÀ DI CHUYỂN CAMERA THEO VỊ TRÍ CON TRỎ (CHUỘT HOẶC CỬ CHỈ MỞ/CHỤM NGÓN TRỎ & CÁI)
+   * Xử lý action từ StateMachine (Kiến trúc mới ổn định)
    */
-  zoomAtCursor(cursorX, cursorY, zoomDelta) {
-    if (!this.group.visible || this.state === 'FULLVIEW') return;
+  handleAction(stateResult, onDwellRatio) {
+    if (!this.group.visible || !stateResult) return;
+    const { action, params } = stateResult;
 
-    // Chuyển từ tọa độ cursor (0 -> 1) sang NDC (-1 -> 1)
-    this.mouse2D.x = (cursorX * 2) - 1;
-    this.mouse2D.y = -(cursorY * 2) + 1;
+    const timestamp = performance.now();
 
-    this.raycaster.setFromCamera(this.mouse2D, this.camera);
-    const rayDir = this.raycaster.ray.direction.clone().normalize();
-
-    const targetPos = this.camera.position.clone();
-    if (zoomDelta > 0) {
-      // Phóng to (Zoom In / Mở 2 ngón tay / Cuộn chuột lên): kéo camera lại gần điểm đang trỏ
-      const step = Math.min(3.5, zoomDelta * 2.2);
-      targetPos.addScaledVector(rayDir, step);
-    } else if (zoomDelta < 0) {
-      // Thu nhỏ (Zoom Out / Chụm 2 ngón tay / Cuộn chuột xuống): kéo camera ra xa
-      const step = Math.min(3.5, Math.abs(zoomDelta) * 2.2);
-      targetPos.addScaledVector(rayDir, -step);
-      // Hướng nhẹ x, y về lại tâm (0, 12) khi lùi ra xa
-      targetPos.x *= 0.9;
-      targetPos.y = 12 + (targetPos.y - 12) * 0.9;
-    }
-
-    // Giới hạn Z trong khoảng an toàn (z min = 15 để không xuyên qua ảnh, z max = 48)
-    targetPos.z = Math.max(15, Math.min(48, targetPos.z));
-    targetPos.x = Math.max(-18, Math.min(18, targetPos.x));
-    targetPos.y = Math.max(0, Math.min(24, targetPos.y));
-
-    gsap.to(this.camera.position, {
-      x: targetPos.x,
-      y: targetPos.y,
-      z: targetPos.z,
-      duration: 0.4,
-      ease: 'power2.out'
-    });
-  }
-
-  /**
-   * Xử lý tương tác ngón tay với Quả cầu hoặc Gallery ảnh
-   * @param {string} gesture - 'POINTING', 'OPEN_PALM', 'FIST'
-   * @param {number} cursorX - Tọa độ X chuẩn hóa (0 -> 1)
-   * @param {number} cursorY - Tọa độ Y chuẩn hóa (0 -> 1)
-   * @param {number} dx - Tốc độ di chuyển X
-   * @param {number} dy - Tốc độ di chuyển Y
-   * @param {Function} onDwellRatio - Callback báo tỷ lệ tiến trình chỉ tay 1s (0 -> 1)
-   * @param {number} zoomDelta - Lượng phóng to / thu nhỏ (> 0: phóng to, < 0: thu nhỏ)
-   */
-  handleHandGesture(gesture, cursorX, cursorY, dx, dy, onDwellRatio, zoomDelta = 0) {
-    if (!this.group.visible) return;
-
-    // Xử lý zoom camera theo vị trí trỏ chuột / ngón tay khi cuộn chuột hoặc mở/chụm ngón tay
-    if (Math.abs(zoomDelta) > 0.001) {
-      this.zoomAtCursor(cursorX, cursorY, zoomDelta);
-    }
-
-    // 1. Nếu đang xem ảnh lớn (FULLVIEW): có thể hủy/đóng xem ảnh bằng Nắm tay, Xòe tay, hoặc Chỉ tay 1s
-    if (this.state === 'FULLVIEW') {
-      if (gesture === 'FIST' || gesture === 'OPEN_PALM') {
-        this.closeFullView();
-        return;
+    // 1. DÀN TRẢI HOẶC THU GỌN ẢNH BẰNG 2 TAY
+    if (action === 'SPREAD_MOVE' || action === 'COLLAPSE_MOVE') {
+      if (params && params.spreadRatio !== undefined) {
+        this.updateSpreadLayout(params.spreadRatio);
       }
-      if (gesture === 'POINTING') {
-        if (!this.closeHoverStartTime) {
-          this.closeHoverStartTime = performance.now();
-        }
-        const elapsed = (performance.now() - this.closeHoverStartTime) / 1000.0;
-        const ratio = Math.min(1.0, elapsed / 1.0); // 1.0s Dwell hủy ảnh
-        if (onDwellRatio) onDwellRatio(ratio);
+      return;
+    }
+    if (action === 'SPREAD_COMMIT') {
+      this.disperseToGallery();
+      return;
+    }
+    if (action === 'COLLAPSE_COMMIT') {
+      this.collapseToSphere();
+      return;
+    }
 
-        if (ratio >= 1.0) {
-          this.closeFullView();
-          if (onDwellRatio) onDwellRatio(0);
+    // 2. TRỞ VỀ HOẶC ĐÓNG ẢNH
+    if (action === 'CLOSE_IMAGE' || action === 'RESET_ALL') {
+      if (this.state === 'FULLVIEW') {
+        this.closeFullView();
+      } else if (action === 'RESET_ALL' && this.state !== 'SPHERE') {
+        this.collapseToSphere();
+      }
+      return;
+    }
+
+    // 3. HOVER / TRỎ ẢNH (POINTING)
+    if (action === 'HOVER_CARD') {
+      if (this.state === 'FULLVIEW') return;
+      const cursorX = params.cursorX !== undefined ? params.cursorX : 0.5;
+      const cursorY = params.cursorY !== undefined ? params.cursorY : 0.5;
+
+      this.mouse2D.x = (cursorX * 2) - 1;
+      this.mouse2D.y = -(cursorY * 2) + 1;
+
+      this.raycaster.setFromCamera(this.mouse2D, this.camera);
+      const intersects = this.raycaster.intersectObjects(this.cards);
+
+      if (intersects.length > 0) {
+        const hitCard = intersects[0].object;
+        this.lastHoverSeenTime = timestamp;
+
+        if (this.hoveredCard !== hitCard) {
+          if (this.hoveredCard) this.unhighlightCard(this.hoveredCard);
+          this.hoveredCard = hitCard;
+          this.hoverStartTime = timestamp;
+          this.highlightCard(hitCard);
+        } else {
+          // Tính tiến trình dwell 1s để tự động mở ảnh (hoặc dùng Pinch để mở ngay)
+          const elapsed = (timestamp - this.hoverStartTime) / 1000.0;
+          const ratio = Math.min(1.0, elapsed / 1.0);
+          if (onDwellRatio) onDwellRatio(ratio);
+
+          if (ratio >= 1.0) {
+            this.enlargeCard(hitCard);
+            if (onDwellRatio) onDwellRatio(0);
+          }
         }
-        return;
       } else {
-        if (this.closeHoverStartTime) {
-          this.closeHoverStartTime = null;
+        // Tolerence 150ms: Không mất hover ngay lập tức nếu tia raycast lệch nhẹ trong 1-2 frames
+        if (this.hoveredCard && timestamp - this.lastHoverSeenTime > 150) {
+          this.unhighlightCard(this.hoveredCard);
+          this.hoveredCard = null;
           if (onDwellRatio) onDwellRatio(0);
         }
       }
       return;
     }
 
-    // 2. Chuyển đổi trạng thái dựa vào cử chỉ xòe tay / nắm tay ở chế độ SPHERE hoặc GALLERY
+    // 4. MỞ ẢNH CHỌN (SELECT_CARD - Pinch to open khi đang hover)
+    if (action === 'SELECT_CARD') {
+      if (this.hoveredCard && this.state !== 'FULLVIEW') {
+        this.enlargeCard(this.hoveredCard);
+      }
+      return;
+    }
+  }
+
+  /**
+   * Xử lý cử chỉ tay (Wrapper tương thích ngược & hỗ trợ chuột/phím)
+   */
+  handleHandGesture(gesture, cursorX, cursorY, dx, dy, onDwellRatio, zoomDelta = 0) {
+    if (!this.group.visible) return;
+
+    // 1. Chế độ xem ảnh lớn
+    if (this.state === 'FULLVIEW') {
+      if (gesture === 'FIST' || gesture === 'OPEN_PALM') {
+        this.closeFullView();
+        return;
+      }
+      return;
+    }
+
+    // 2. Chuyển đổi trạng thái SPHERE / GALLERY
     if (gesture === 'OPEN_PALM' && this.state === 'SPHERE') {
       this.disperseToGallery();
       return;
@@ -450,55 +530,30 @@ export class PhotoSphere {
       return;
     }
 
-    // 3. CHỤM 5 NGÓN TAY (PINCH_GRAB / HOẶC CLICK GIỮ CHUỘT): Kéo xoay quả cầu khi ở trạng thái SPHERE
+    // 3. Xoay bằng chuột / thao tác trực tiếp
     if (this.state === 'SPHERE' && gesture === 'PINCH_GRAB') {
       if (Math.abs(dx) > 0.001 || Math.abs(dy) > 0.001) {
-        this.group.rotation.y += dx * 4.5; // Nhạy và xoay mượt theo hướng kéo
+        this.group.rotation.y += dx * 4.5;
         this.group.rotation.x = Math.max(-0.6, Math.min(0.6, this.group.rotation.x + dy * 3.0));
       }
     }
 
-    // 4. Kéo cuộn danh sách ảnh (Drag scrolling) khi ở trạng thái GALLERY
+    // 4. Cuộn ngang Gallery
     if (this.state === 'GALLERY' && (gesture === 'PINCH_GRAB' || gesture === 'POINTING')) {
       if (Math.abs(dx) > 0.001) {
-        this.targetScrollX -= dx * 65.0; // Kéo ảnh sang trái/phải theo cử chỉ ngón tay
+        this.targetScrollX -= dx * 65.0;
       }
     }
 
-    // 5. CHỈ NGÓN TAY: Kiểm tra (Raycast) vào bức ảnh nào để kích hoạt Dwell 1 GIÂY (1.0s)
+    // 5. Trỏ ảnh và hover
     if (gesture === 'POINTING' && (this.state === 'SPHERE' || this.state === 'GALLERY')) {
-      this.mouse2D.x = (cursorX * 2) - 1;
-      this.mouse2D.y = -(cursorY * 2) + 1;
-
-      this.raycaster.setFromCamera(this.mouse2D, this.camera);
-      const intersects = this.raycaster.intersectObjects(this.cards);
-
-      if (intersects.length > 0) {
-        const hitCard = intersects[0].object;
-        if (this.hoveredCard !== hitCard) {
-          this.hoveredCard = hitCard;
-          this.hoverStartTime = performance.now();
-        } else {
-          // Tính thời gian hover (chỉ tay vào ảnh): 1.0 giây (1s)
-          const elapsed = (performance.now() - this.hoverStartTime) / 1000.0;
-          const ratio = Math.min(1.0, elapsed / 1.0); // 1.0 giây thay vì 2 giây
-          if (onDwellRatio) onDwellRatio(ratio);
-
-          if (ratio >= 1.0) {
-            this.enlargeCard(hitCard);
-            this.hoveredCard = null;
-            if (onDwellRatio) onDwellRatio(0);
-          }
-        }
-      } else {
-        if (this.hoveredCard) {
-          this.hoveredCard = null;
-          if (onDwellRatio) onDwellRatio(0);
-        }
-      }
+      this.handleAction({
+        action: 'HOVER_CARD',
+        params: { cursorX, cursorY }
+      }, onDwellRatio);
     } else {
       if (this.hoveredCard) {
-        this.hoveredCard = null;
+        this.unhighlightAllCards();
         if (onDwellRatio) onDwellRatio(0);
       }
     }
@@ -510,7 +565,7 @@ export class PhotoSphere {
   update(delta) {
     if (!this.group.visible) return;
 
-    // 1. Xoay tròn quả cầu liên tục tự động nếu ở trạng thái SPHERE
+    // 1. Xoay tròn quả cầu liên tục tự động nếu ở trạng thái SPHERE và không có thao tác giữ
     if (this.state === 'SPHERE') {
       this.group.rotation.y += delta * 0.12; // Xoay tự nhiên mượt mà
     }
