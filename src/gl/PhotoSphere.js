@@ -15,7 +15,7 @@ export class PhotoSphere {
     this.scene = scene;
     this.camera = camera;
     this.group = new THREE.Group();
-    this.group.position.set(0, 12, 0); // Đặt ở vị trí trung tâm cảnh
+    this.group.position.set(0, 19, 0); // Nâng quả cầu ảnh lên cao hơn nữa theo yêu cầu
     this.group.visible = false;
     this.scene.add(this.group);
 
@@ -56,7 +56,7 @@ export class PhotoSphere {
   initPhotos() {
     const textureLoader = new THREE.TextureLoader();
     const count = photoUrls.length || 1;
-    const radius = 13.5; // Bán kính chuẩn, nhìn thấy trọn vẹn 100% quả cầu trên màn hình
+    const radius = 11.5; // Bán kính chuẩn vừa vặn 100% quả cầu, không bao giờ bị mất cạnh hay hiện 2/3
     const phi = Math.PI * (3 - Math.sqrt(5)); // Tỷ lệ vàng Fibonacci
 
     photoUrls.forEach((url, i) => {
@@ -289,11 +289,11 @@ export class PhotoSphere {
     // Đưa cardGroup ra khỏi quả cầu xoay, gắn vào scene ở hệ tọa độ world để không bị xoay ngược hướng
     this.scene.attach(cardMesh.userData.cardGroup);
 
-    // Phóng lớn bức ảnh ra ngay trước camera (Camera ở 0, 12, 36 -> Đặt ảnh ở 0, 12, 24)
+    // Phóng lớn bức ảnh ra ngay trước camera (Camera ở 0, 19, 43 -> Đặt ảnh ở 0, 19, 30)
     gsap.to(cardMesh.userData.cardGroup.position, {
       x: 0,
-      y: 12,
-      z: 24, // Sát ngay chính diện trước camera, luôn quay mặt về phía người dùng
+      y: 19,
+      z: 30, // Sát ngay chính diện trước camera, luôn quay mặt về phía người dùng
       duration: 1.2,
       ease: 'power3.out'
     });
@@ -322,25 +322,27 @@ export class PhotoSphere {
     if (!btn) {
       btn = document.createElement('button');
       btn.id = 'ai-close-photo-btn';
-      btn.innerHTML = `✕ Đóng ảnh <span style="font-size: 11px; opacity: 0.85; margin-left: 6px;">(✊ Nắm tay / ✋ Xòe / ESC)</span>`;
+      btn.innerHTML = `<span style="display:inline-flex; align-items:center; gap:8px;">✕ Trở lại Quả Cầu <span style="font-size: 12px; font-weight:400; opacity: 0.8;">(✊ Nắm tay / ESC)</span></span>`;
       Object.assign(btn.style, {
         position: 'fixed',
-        bottom: '40px',
+        bottom: '42px',
         left: '50%',
         transform: 'translateX(-50%)',
         zIndex: '10000',
-        background: 'rgba(255, 60, 60, 0.85)',
-        backdropFilter: 'blur(16px)',
-        border: '1px solid rgba(255, 255, 255, 0.4)',
-        borderRadius: '30px',
-        padding: '12px 32px',
+        background: 'rgba(12, 18, 36, 0.68)',
+        backdropFilter: 'blur(24px)',
+        WebkitBackdropFilter: 'blur(24px)',
+        border: '1px solid rgba(255, 255, 255, 0.28)',
+        borderRadius: '50px',
+        padding: '13px 30px',
         color: '#ffffff',
         fontFamily: "'Montserrat', sans-serif",
-        fontSize: '15px',
-        fontWeight: '700',
+        fontSize: '14px',
+        fontWeight: '600',
+        letterSpacing: '0.5px',
         cursor: 'pointer',
-        boxShadow: '0 10px 30px rgba(255, 0, 0, 0.4), 0 0 20px rgba(255, 255, 0.2)',
-        transition: 'all 0.4s ease',
+        boxShadow: '0 20px 50px rgba(0, 0, 0, 0.65), 0 0 35px rgba(0, 255, 255, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.25)',
+        transition: 'all 0.4s cubic-bezier(0.16, 1, 0.3, 1)',
         opacity: '0'
       });
       btn.addEventListener('click', (e) => {
@@ -465,8 +467,25 @@ export class PhotoSphere {
       this.raycaster.setFromCamera(this.mouse2D, this.camera);
       const intersects = this.raycaster.intersectObjects(this.cards);
 
+      let hitCard = null;
       if (intersects.length > 0) {
-        const hitCard = intersects[0].object;
+        hitCard = intersects[0].object;
+      } else {
+        // Tự động hít (magnetic snap) vào ảnh gần nhất trên màn hình nếu trỏ lệch nhẹ
+        let minDist = 0.28; // Ngưỡng nhận diện rộng (28% màn hình)
+        const vec = new THREE.Vector3();
+        for (const card of this.cards) {
+          card.getWorldPosition(vec);
+          vec.project(this.camera);
+          const dist = Math.hypot(vec.x - this.mouse2D.x, vec.y - this.mouse2D.y);
+          if (dist < minDist) {
+            minDist = dist;
+            hitCard = card;
+          }
+        }
+      }
+
+      if (hitCard) {
         this.lastHoverSeenTime = timestamp;
 
         if (this.hoveredCard !== hitCard) {
@@ -475,9 +494,9 @@ export class PhotoSphere {
           this.hoverStartTime = timestamp;
           this.highlightCard(hitCard);
         } else {
-          // Tính tiến trình dwell 1s để tự động mở ảnh (hoặc dùng Pinch để mở ngay)
+          // Rút ngắn thời gian dwell xuống 450ms để mở ảnh cực nhanh nhạy
           const elapsed = (timestamp - this.hoverStartTime) / 1000.0;
-          const ratio = Math.min(1.0, elapsed / 1.0);
+          const ratio = Math.min(1.0, elapsed / 0.45);
           if (onDwellRatio) onDwellRatio(ratio);
 
           if (ratio >= 1.0) {
@@ -486,8 +505,8 @@ export class PhotoSphere {
           }
         }
       } else {
-        // Tolerence 150ms: Không mất hover ngay lập tức nếu tia raycast lệch nhẹ trong 1-2 frames
-        if (this.hoveredCard && timestamp - this.lastHoverSeenTime > 150) {
+        // Tolerance 450ms: Không mất hover ngay nếu tay rung hoặc lệch khỏi ảnh trong vài frames
+        if (this.hoveredCard && timestamp - this.lastHoverSeenTime > 450) {
           this.unhighlightCard(this.hoveredCard);
           this.hoveredCard = null;
           if (onDwellRatio) onDwellRatio(0);
@@ -511,22 +530,28 @@ export class PhotoSphere {
   handleHandGesture(gesture, cursorX, cursorY, dx, dy, onDwellRatio, zoomDelta = 0) {
     if (!this.group.visible) return;
 
-    // 1. Chế độ xem ảnh lớn
+    // 1. Cử chỉ FIST quay lại lập tức từ bất kỳ chế độ nào (GALLERY hoặc FULLVIEW)
+    if (gesture === 'FIST' && this.state !== 'SPHERE') {
+      if (this.state === 'FULLVIEW') {
+        this.closeFullView();
+      } else {
+        this.collapseToSphere();
+      }
+      return;
+    }
+
+    // 2. Chế độ xem ảnh lớn
     if (this.state === 'FULLVIEW') {
-      if (gesture === 'FIST' || gesture === 'OPEN_PALM') {
+      if (gesture === 'OPEN_PALM') {
         this.closeFullView();
         return;
       }
       return;
     }
 
-    // 2. Chuyển đổi trạng thái SPHERE / GALLERY
+    // 3. Chuyển đổi trạng thái SPHERE / GALLERY
     if (gesture === 'OPEN_PALM' && this.state === 'SPHERE') {
       this.disperseToGallery();
-      return;
-    }
-    if (gesture === 'FIST' && this.state === 'GALLERY') {
-      this.collapseToSphere();
       return;
     }
 
@@ -538,15 +563,15 @@ export class PhotoSphere {
       }
     }
 
-    // 4. Cuộn ngang Gallery
-    if (this.state === 'GALLERY' && (gesture === 'PINCH_GRAB' || gesture === 'POINTING')) {
+    // 4. Cuộn ngang Gallery (chỉ dùng PINCH_GRAB để POINTING chuyên biệt cho việc view ảnh)
+    if (this.state === 'GALLERY' && gesture === 'PINCH_GRAB') {
       if (Math.abs(dx) > 0.001) {
         this.targetScrollX -= dx * 65.0;
       }
     }
 
-    // 5. Trỏ ảnh và hover
-    if (gesture === 'POINTING' && (this.state === 'SPHERE' || this.state === 'GALLERY')) {
+    // 5. Trỏ ảnh và hover (bằng POINTING hoặc khi đang ở GALLERY có thể dùng OPEN_PALM)
+    if ((gesture === 'POINTING' || (this.state === 'GALLERY' && gesture === 'OPEN_PALM')) && (this.state === 'SPHERE' || this.state === 'GALLERY')) {
       this.handleAction({
         action: 'HOVER_CARD',
         params: { cursorX, cursorY }

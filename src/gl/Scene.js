@@ -469,7 +469,7 @@ export class SceneManager {
     this.createPetals();
 
     // Use "Dancing Script" (Calligraphy/Cursive), set up for drawing effect
-    this.textPoem1 = this.createTextSprite("Năm tháng trôi như dòng thủy mặc,", "Dancing Script", 120, "#222222", "0px", 8);
+    this.textPoem1 = this.createTextSprite("Chúc Nguyệt Hà tuổi mới ngát hương,", "Dancing Script", 120, "#222222", "0px", 8);
     this.textPoem1.position.set(0, 25, 150); // Set high up and very far back for the epic dive
     this.textPoem1.material.opacity = 0;
     this.textPoem1.userData.writeProgress = 0;
@@ -489,7 +489,7 @@ export class SceneManager {
     this.textPoem1Reflect.renderOrder = 10;
     this.scene.add(this.textPoem1Reflect);
 
-    this.textPoem2 = this.createTextSprite("Tâm an nhiên tĩnh tại tựa ngàn non.", "Dancing Script", 120, "#222222", "0px", 8);
+    this.textPoem2 = this.createTextSprite("Một đời rực rỡ, bình an, rạng ngời.", "Dancing Script", 120, "#222222", "0px", 8);
     this.textPoem2.position.set(0, 10, 40); // Set closer to the mountains
     this.textPoem2.material.opacity = 0;
     this.textPoem2.userData.writeProgress = 0;
@@ -1358,8 +1358,8 @@ export class SceneManager {
         this.camera.fov = 60;
         this.camera.updateProjectionMatrix();
 
-        // Đặt camera vào tâm không gian Quả cầu ảnh 3D (z = 36)
-        this.camera.position.set(0, 12, 36);
+        // Đặt camera vào tâm không gian Quả cầu ảnh 3D (z = 43, y = 19 căn giữa trọn vẹn)
+        this.camera.position.set(0, 19, 43);
         this.camera.rotation.set(0, 0, 0);
         if (this.blackHoleGroup) this.blackHoleGroup.visible = false;
         if (this.suctionStreamers) this.suctionStreamers.visible = false;

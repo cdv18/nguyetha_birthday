@@ -28,8 +28,8 @@ export class GestureClassifier {
    * Kiểm tra ngón tay duỗi với ngưỡng động (hysteresis)
    */
   isFingerExtended(ratio, wasExtended) {
-    const enterThresh = this.config.pointingEnterThreshold || 1.30;
-    const exitThresh = this.config.pointingExitThreshold || 1.18;
+    const enterThresh = this.config.pointingEnterThreshold || 1.08;
+    const exitThresh = this.config.pointingExitThreshold || 1.03;
     return wasExtended ? (ratio > exitThresh) : (ratio > enterThresh);
   }
 
@@ -84,19 +84,17 @@ export class GestureClassifier {
       return { raw: 'OPEN_PALM', pinchDist, fingerStates };
     }
 
-    // Ưu tiên 2: POINTING (chỉ ngón trỏ duỗi, các ngón còn lại co)
-    if (indexExt && !middleExt && !ringExt && !pinkyExt) {
-      return { raw: 'POINTING', pinchDist, fingerStates };
-    }
-
-    // Ưu tiên 3: FIST (cả 4 ngón đều co)
-    const fistMax = this.config.fistMaxExtension || 1.15;
-    if (indexRatio < fistMax && middleRatio < fistMax && ringRatio < fistMax && pinkyRatio < fistMax) {
+    // Ưu tiên 2: FIST (nắm tay - ưu tiên kiểm tra trước POINTING tránh nhầm ngón trỏ co nhẹ thành chỉ)
+    const fistMax = this.config.fistMaxExtension || 1.38;
+    const avgRatio = (indexRatio + middleRatio + ringRatio + pinkyRatio) / 4.0;
+    const isFist = (indexRatio < fistMax && middleRatio < fistMax && ringRatio < fistMax && pinkyRatio < fistMax) ||
+                   (avgRatio < 1.25 && middleRatio < fistMax && ringRatio < fistMax && pinkyRatio < fistMax);
+    if (isFist) {
       return { raw: 'FIST', pinchDist, fingerStates };
     }
 
-    // Fallback: nếu ngón trỏ duỗi rỗ ràng thì công nhận là POINTING
-    if (indexExt) {
+    // Ưu tiên 3: POINTING (ngón trỏ duỗi hơn các ngón khác hoặc indexExt nhạy)
+    if ((indexExt || indexRatio > 1.08) && !isFist) {
       return { raw: 'POINTING', pinchDist, fingerStates };
     }
 

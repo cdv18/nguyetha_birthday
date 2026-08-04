@@ -27,15 +27,15 @@ export const HAND_CONFIG = {
   // 4. Cấu hình phân loại cử chỉ (Gesture Classification & Hysteresis)
   gesture: {
     // Ngưỡng POINTING (Hysteresis: ngưỡng bắt đầu lớn hơn ngưỡng kết thúc)
-    pointingEnterThreshold: 1.18,    // tỷ lệ dist(tip, wrist) / dist(pip, wrist) > 1.18 để vào POINTING
-    pointingExitThreshold: 1.10,     // tỷ lệ < 1.10 mới kết thúc POINTING
+    pointingEnterThreshold: 1.08,    // tỷ lệ dist(tip, wrist) / dist(pip, wrist) > 1.08 để vào POINTING (nhạy hơn cho webcam)
+    pointingExitThreshold: 1.03,     // tỷ lệ < 1.03 mới kết thúc POINTING
 
     // Ngưỡng PINCH_GRAB (chụm ngón cái - trỏ / giữa)
     pinchEnterThreshold: 0.08,       // Khoảng cách chuẩn hóa < 0.08 để vào PINCH
     pinchExitThreshold: 0.14,        // Khoảng cách > 0.14 mới thoát PINCH
 
     // Ngưỡng FIST (nắm tay)
-    fistMaxExtension: 1.15,          // Không ngón nào có tỷ lệ duỗi vượt 1.15
+    fistMaxExtension: 1.38,          // Không ngón nào có tỷ lệ duỗi vượt 1.38 (nới lỏng cho góc quay webcam)
 
     // Xác nhận nhiều frame liên tiếp (Multi-frame confirmation)
     confirmFrames: 2,                // Cần 2 frame liên tiếp cùng cử chỉ để công nhận nhanh nhạy

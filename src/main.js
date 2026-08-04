@@ -207,7 +207,12 @@ function blowCandles() {
     let isWarpComplete = false;
     let blackHoleDwellTime = 0;
 
-    // 2. Kích hoạt nhận diện ngón tay chỉ (hoặc xòe/nắm tay) cho Hố đen & Quả cầu ảnh (Hệ thống AI 2.0)
+    // 2. Kích hoạt nhận diện ngón tay hoặc chuột/chạm cho Hố đen & Quả cầu ảnh
+    showGlassInstruction(
+      '✨ Chạm vào vì sao để mở Cánh Cổng Thời Gian',
+      'Nhấp chuột hoặc lướt nhẹ tay qua ánh sáng chính diện để du hành vào Vũ Trụ Kỷ Niệm'
+    );
+
     setupHandInteraction(sceneManager.photoSphere, sceneManager.camera, audioManager, (gesture, x, y, dx, dy, _dwell, zoomDelta) => {
       // Khi điểm sáng đang xuất hiện và chưa kích hoạt hố đen:
       if (!isBlackHoleTriggered && sceneManager.sparklingPoint && sceneManager.sparklingPoint.visible) {
@@ -215,20 +220,25 @@ function blowCandles() {
         const inCenterBox = Math.abs(x - 0.5) < 0.35 && Math.abs(y - 0.5) < 0.35;
         if (inCenterBox && gesture !== 'NONE') {
           blackHoleDwellTime += 16.6;
-          updateDwellProgress(Math.min(1.0, blackHoleDwellTime / 300));
+          updateDwellProgress(Math.min(1.0, blackHoleDwellTime / 40));
 
-          if (blackHoleDwellTime >= 300) {
+          if (blackHoleDwellTime >= 40) {
             isBlackHoleTriggered = true;
+            hideGlassInstruction();
             updateDwellProgress(0);
             console.log("✨ CHẠM TAY VÀO VÌ SAO -> KÍCH HOẠT HỐ ĐEN GARGANTUA!");
             sceneManager.triggerBlackHoleSuction(() => {
               isWarpComplete = true;
+              showGlassInstruction(
+                '✨ Khám Phá Quả Cầu Kỷ Niệm Nguyệt Hà',
+                '✋ Xòe tay: Dàn trải ảnh  •  🤏 Pinch / Chỉ tay: Chọn ảnh  •  ✊ Nắm tay: Trở lại quả cầu'
+              );
             }, audioManager);
           }
         } else {
           // Trừ dần thay vì reset về 0 ngay lập tức tránh mất dwell do tay rung nhẹ
           blackHoleDwellTime = Math.max(0, blackHoleDwellTime - 10);
-          updateDwellProgress(Math.min(1.0, blackHoleDwellTime / 300));
+          updateDwellProgress(Math.min(1.0, blackHoleDwellTime / 40));
         }
       }
 
@@ -244,9 +254,14 @@ function blowCandles() {
     const clickHandler = () => {
       if (!isBlackHoleTriggered && sceneManager.sparklingPoint && sceneManager.sparklingPoint.visible) {
         isBlackHoleTriggered = true;
+        hideGlassInstruction();
         window.removeEventListener('click', clickHandler);
         sceneManager.triggerBlackHoleSuction(() => {
           isWarpComplete = true;
+          showGlassInstruction(
+            '✨ Khám Phá Quả Cầu Kỷ Niệm Nguyệt Hà',
+            '✋ Xòe tay: Dàn trải ảnh  •  🤏 Pinch / Chỉ tay: Chọn ảnh  •  ✊ Nắm tay: Trở lại quả cầu'
+          );
         }, audioManager);
       }
     };
@@ -338,9 +353,10 @@ window.skipToBlackHole = () => {
                 const inCenterBox = Math.abs(x - 0.5) < 0.35 && Math.abs(y - 0.5) < 0.35;
                 if (inCenterBox && gesture !== 'NONE') {
                     blackHoleDwellTime += 16.6;
-                    updateDwellProgress(Math.min(1.0, blackHoleDwellTime / 300));
-                    if (blackHoleDwellTime >= 300) {
+                    updateDwellProgress(Math.min(1.0, blackHoleDwellTime / 40));
+                    if (blackHoleDwellTime >= 40) {
                         isBlackHoleTriggered = true;
+                        hideGlassInstruction();
                         updateDwellProgress(0);
                         console.log("✨ CHẠM TAY VÀO VÌ SAO -> KÍCH HOẠT HỐ ĐEN GARGANTUA!");
                         sceneManager.triggerBlackHoleSuction(() => {
@@ -349,7 +365,7 @@ window.skipToBlackHole = () => {
                     }
                 } else {
                     blackHoleDwellTime = Math.max(0, blackHoleDwellTime - 10);
-                    updateDwellProgress(Math.min(1.0, blackHoleDwellTime / 300));
+                    updateDwellProgress(Math.min(1.0, blackHoleDwellTime / 40));
                 }
             }
 
@@ -365,7 +381,7 @@ window.skipToPhotoSphere = () => {
     window.skipToDawn();
     setTimeout(() => {
         if (sceneManager) {
-            sceneManager.camera.position.set(0, 12, 36);
+            sceneManager.camera.position.set(0, 19, 43);
             sceneManager.camera.rotation.set(0, 0, 0);
             if (sceneManager.water) sceneManager.water.visible = false;
             if (sceneManager.timeTunnelGroup) sceneManager.timeTunnelGroup.visible = false;
@@ -373,7 +389,13 @@ window.skipToPhotoSphere = () => {
             if (sceneManager.spaceStarfield) sceneManager.spaceStarfield.visible = true;
             sceneManager.scene.background.setRGB(0.002, 0.004, 0.01);
             sceneManager.scene.fog.color.setRGB(0.002, 0.004, 0.01);
-            if (sceneManager.photoSphere) sceneManager.photoSphere.show();
+            if (sceneManager.photoSphere) {
+              sceneManager.photoSphere.show();
+              showGlassInstruction(
+                '✨ Khám Phá Quả Cầu Kỷ Niệm Nguyệt Hà',
+                '✋ Xòe tay: Dàn trải ảnh  •  🤏 Pinch / Chỉ tay: Chọn ảnh  •  ✊ Nắm tay: Trở lại quả cầu'
+              );
+            }
         }
         setupHandDetection((gesture, x, y, dx, dy, _dwell, zoomDelta) => {
             if (sceneManager && sceneManager.photoSphere) {
@@ -382,3 +404,34 @@ window.skipToPhotoSphere = () => {
         });
     }, 500);
 };
+
+// ==========================================
+// HỆ THỐNG CHỈ DẪN GLASSMORPHISM BLUR MỜ ĐẸP
+// ==========================================
+function showGlassInstruction(titleHtml, subHtml) {
+  let banner = document.getElementById('ai-glass-instruction');
+  if (!banner) {
+    banner = document.createElement('div');
+    banner.id = 'ai-glass-instruction';
+    banner.className = 'glass-instruction-banner';
+    document.body.appendChild(banner);
+  }
+  banner.innerHTML = `
+    <div class="glass-instruction-title">${titleHtml}</div>
+    <div class="glass-instruction-sub">${subHtml}</div>
+  `;
+  requestAnimationFrame(() => {
+    banner.classList.add('active');
+  });
+}
+
+function hideGlassInstruction() {
+  const banner = document.getElementById('ai-glass-instruction');
+  if (banner) {
+    banner.classList.remove('active');
+  }
+}
+
+window._showGlassInstruction = showGlassInstruction;
+window._hideGlassInstruction = hideGlassInstruction;
+

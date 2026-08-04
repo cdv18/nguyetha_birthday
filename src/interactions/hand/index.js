@@ -84,12 +84,9 @@ export async function setupHandInteraction(photoSphere, camera, audioManager, on
     }
   });
 
-  // 4. Khởi động camera và MediaPipe
   const cameraOK = await activeTracker.init();
   if (!cameraOK && activeUI) {
-    activeUI.showToast('⚠️ Camera không khả dụng. Hệ thống đã tự động bật chế độ chuột/phím.', 4500);
-  } else if (cameraOK && activeUI) {
-    activeUI.showToast('✅ Nhận diện tay AI 2.0 đã kích hoạt (Hỗ trợ 2 tay & Bộ lọc One Euro)', 3000);
+    activeUI.showToast('⚠️ Bạn có thể dùng chuột hoặc nhấp màn hình để điều khiển.', 3500);
   }
 
   // 5. Cài đặt điều khiển chuột & phím fallback (luôn sẵn sàng khi không dùng camera)
