@@ -186,10 +186,10 @@ export class SceneManager {
     this.whispers = [];
     const texts = [
       "Chúc mừng sinh nhật em, Nguyệt Hà.",
-      "Tuổi 21 có thể sẽ nhiều chênh vênh...",
-      "Cảm ơn em vì đã đến...",
-      "...giống như ánh trăng dịu dàng soi xuống dòng sông.",
-      "Dù thế nào đi nữa... Anh vẫn sẽ ở đây."
+      "Chúc em tuổi 21 rực rỡ và ngập tràn niềm vui...",
+      "Mong mọi ước mơ đẹp nhất của em sẽ thành hiện thực...",
+      "Hãy luôn bình an và tỏa sáng như vầng trăng dịu dàng...",
+      "...và chúc cho mỗi ngày của em đều trọn vẹn hạnh phúc!"
     ];
     texts.forEach(txt => {
       const mesh = this.createTextSprite(txt, "Montserrat", 80, "#ffeacc", "2px", 3);

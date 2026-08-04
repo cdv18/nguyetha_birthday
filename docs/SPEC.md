@@ -88,10 +88,10 @@ Toàn bộ trải nghiệm kéo dài khoảng **~2-3 phút** (tùy tương tác)
 
 **5 Lời chúc:**
 1. *"Chúc mừng sinh nhật em, Nguyệt Hà."*
-2. *"Tuổi 21 có thể sẽ nhiều chênh vênh..."*
-3. *"Cảm ơn em vì đã đến..."*
-4. *"...giống như ánh trăng dịu dàng soi xuống dòng sông."*
-5. *"Dù thế nào đi nữa... Anh vẫn sẽ ở đây."*
+2. *"Chúc em tuổi 21 rực rỡ và ngập tràn niềm vui..."*
+3. *"Mong mọi ước mơ đẹp nhất của em sẽ thành hiện thực..."*
+4. *"Hãy luôn bình an và tỏa sáng như vầng trăng dịu dàng..."*
+5. *"...và chúc cho mỗi ngày của em đều trọn vẹn hạnh phúc!"*
 
 ---
 
